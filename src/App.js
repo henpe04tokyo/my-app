@@ -1,7 +1,7 @@
-// App.js
+// src/App.js
 import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from './firebase'; // firebase.jsで初期化したFirestoreインスタンス
+import { db } from './firebase';
 
 // 固定設定：各プレイヤーの初期持ち点は25,000点、返し点は30,000点
 // 順位点は [30, 10, -10, -30]（1位は後で符号反転で求める）
@@ -62,7 +62,7 @@ function App() {
   // 追加: ゲーム結果履歴テーブルの「チップ」行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // ※ ここで別途 games state は使わず、currentGroup.games を直接使います
+  // グループのゲーム結果履歴は currentGroup.games に保持するので、別途 games state は不要
   
   // Firebase連携：グループ作成時の書き込み
   const saveGroupToFirebase = async (groupData) => {
@@ -190,14 +190,14 @@ function App() {
     return - (distribution * (20 - chipInput)) / 100;
   };
 
-  // 最終結果（半荘結果累計＋チップボーナス）の計算（両方とも千点単位で表示）
+  // 最終結果行の計算（半荘結果累計＋チップボーナスの合計、どちらも千点単位）
   const calculateFinalOverall = (idx) => {
     const halfTotal = totalsRounded ? totalsRounded[idx] : 0;
     const bonus = calculateChipBonus(["rank1", "rank2", "rank3", "rank4"][idx]);
     return halfTotal + bonus;
   };
 
-  // トップページ： currentGroup が null の場合
+  // トップページ（グループ作成＋既存グループ一覧）
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -413,7 +413,6 @@ function App() {
                 {["rank1", "rank2", "rank3", "rank4"].map((r) => {
                   const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
                   const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-                  // bonus = - (distribution * (20 - chipInput)) / 100  → 千点単位の値として表示
                   const bonus = - (distribution * (20 - chipInput)) / 100;
                   return (
                     <td key={r} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
@@ -423,7 +422,7 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の値を合計して表示） */}
+              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の値を合算して表示） */}
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {

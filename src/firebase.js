@@ -1,12 +1,8 @@
 // src/firebase.js
-
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore"; // Firestoreを使う場合
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Firebase コンソールから取得した設定情報を貼り付ける
 const firebaseConfig = {
   apiKey: "AIzaSyDdULG2JiqKTIkF1AvcZeJse8vQHVzijnA",
   authDomain: "mahjong-first.firebaseapp.com",
@@ -17,9 +13,5 @@ const firebaseConfig = {
   measurementId: "G-HJ3H6Z35DZ"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-// Firestore のインスタンスを作成してエクスポート
 export const db = getFirestore(app);
