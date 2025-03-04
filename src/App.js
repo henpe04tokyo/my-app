@@ -22,7 +22,7 @@ function roundScore(score) {
 }
 
 // 各順位（非1位）の最終スコア計算
-// 計算式: 最終スコア = 順位点 - ((返し点 - (丸めた持ち点*1000)) / 1000)
+// 計算式: 最終スコア = 順位点 - ((返し点 - (丸めた持ち点 * 1000)) / 1000)
 function calculateFinalScore(inputScore, rankIndex) {
   if (inputScore === '' || isNaN(Number(inputScore))) return 0;
   const score = Number(inputScore);
@@ -62,9 +62,8 @@ function App() {
   // 追加: ゲーム結果履歴テーブルの「チップ」行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // グループのゲーム結果履歴を管理（各グループの形式: { id, name, settings, players, games }）
-  const [games, setGames] = useState([]);
-
+  // ※ ここで別途 games state は使わず、currentGroup.games を直接使います
+  
   // Firebase連携：グループ作成時の書き込み
   const saveGroupToFirebase = async (groupData) => {
     try {
@@ -168,7 +167,7 @@ function App() {
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
   };
 
-  // 総合結果の累計計算：各ゲームの最終スコア（×1000）の合計を、五捨六入で丸めた値で表示（千点単位）
+  // 総合結果の累計計算：各ゲームの最終スコア（×1000）の合計を、五捨六入で丸めた値（千点単位）で表示
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -191,14 +190,14 @@ function App() {
     return - (distribution * (20 - chipInput)) / 100;
   };
 
-  // 最終結果（半荘結果累計＋チップボーナス）の計算（両方とも千点単位）
+  // 最終結果（半荘結果累計＋チップボーナス）の計算（両方とも千点単位で表示）
   const calculateFinalOverall = (idx) => {
     const halfTotal = totalsRounded ? totalsRounded[idx] : 0;
     const bonus = calculateChipBonus(["rank1", "rank2", "rank3", "rank4"][idx]);
     return halfTotal + bonus;
   };
 
-  // トップページ（グループ作成＋既存グループ一覧）表示
+  // トップページ： currentGroup が null の場合
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -244,7 +243,7 @@ function App() {
     );
   }
 
-  // グループ詳細ページ表示
+  // グループ詳細ページ
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       {/* トップページに戻るボタン */}
@@ -414,6 +413,7 @@ function App() {
                 {["rank1", "rank2", "rank3", "rank4"].map((r) => {
                   const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
                   const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
+                  // bonus = - (distribution * (20 - chipInput)) / 100  → 千点単位の値として表示
                   const bonus = - (distribution * (20 - chipInput)) / 100;
                   return (
                     <td key={r} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
@@ -423,11 +423,11 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の値を合計して÷100で表示） */}
+              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の値を合計して表示） */}
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {
-                  const bonus = calculateChipBonus(r);
+                  const bonus = - (chipDistribution !== '' ? Number(chipDistribution) : 0) * (20 - (chipRow[r] !== '' ? Number(chipRow[r]) : 20)) / 100;
                   return totalsRounded[idx] + bonus;
                 });
                 return (
