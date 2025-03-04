@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-// 固定設定：初期持ち点25,000点、返し点30,000点、順位点[30, 10, -10, -30]（1位は後で符号反転）
+// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]
+// ※1位は後で符号反転で求める
 const settings = {
   initialPoints: 25000,
   returnPoints: 30000,
@@ -46,7 +47,8 @@ function App() {
   const [currentGroup, setCurrentGroup] = useState(null);
   const [newGroupName, setNewGroupName] = useState('');
   
-  // プレイヤー名の状態：更新が不要なら setPlayers は使わず、固定値として定義
+  // プレイヤー名および半荘結果入力用の状態
+  // ここでは players の変更は不要なら setPlayers は使わず、固定値として使用
   const [players] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -54,13 +56,13 @@ function App() {
     rank3: '',
     rank4: ''
   });
-  // 未使用の setMessage を削除。もしメッセージ表示が必要なら、使うように実装してください。
-  const [message, setMessage] = useState('');
   
   // 追加: 半荘設定用のチップ配点
   const [chipDistribution, setChipDistribution] = useState('');
   // 追加: ゲーム結果履歴テーブルの「チップ」行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
+  
+  // ゲーム結果履歴は currentGroup.games に保持する（別途 games state は不要）
   
   // Firebase連携：グループ作成時の書き込み
   const saveGroupToFirebase = async (groupData) => {
@@ -181,13 +183,15 @@ function App() {
 
   // チップボーナスの自動計算：各プレイヤーごとに
   // bonus = - (chipDistribution * (20 - chipInput)) / 100
+  // ※ここでは、値はすでに千点単位で表示するため、たとえば 300×(20-chipInput) /100 の結果が得られる
+  // 例: chipDistribution=300, chipInput=30 → bonus = - (300*(20-30))/100 = - (300*(-10))/100 = +3000/100 = +30
   const calculateChipBonus = (r) => {
     const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
     const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
     return - (distribution * (20 - chipInput)) / 100;
   };
 
-  // トップページ（グループ作成＋既存グループ一覧）
+  // トップページ（グループ作成＋既存グループ一覧）表示
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -231,7 +235,7 @@ function App() {
     );
   }
 
-  // グループ詳細ページ
+  // グループ詳細ページ表示
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       {/* トップページに戻るボタン */}
@@ -410,7 +414,7 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算） */}
+              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算、千点単位で表示） */}
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {
@@ -435,8 +439,6 @@ function App() {
           <p>まだ半荘結果がありません。</p>
         )}
       </div>
-
-      {message && <p style={{ color: 'green' }}>{message}</p>}
     </div>
   );
 }
