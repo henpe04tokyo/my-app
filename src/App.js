@@ -41,13 +41,13 @@ function calculateFinalScores(scores) {
 }
 
 function App() {
-  // グループ管理用
+  // グループ管理用の状態
   const [groups, setGroups] = useState([]);
   // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
   
-  // グループ作成時の名前入力は不要のため、初期値は "グループ名未設定" とする
-  // プレイヤー名は編集可能とするため、setPlayers を使用
+  // グループ作成時の名前入力は不要なので、初期グループ名は固定で "グループ名未設定" とする
+  // プレイヤー名は編集可能とする
   const [players, setPlayers] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -102,8 +102,8 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 基本情報更新：日付とプレイヤー名を更新し、グループ名を日付で更新する
-  // ここでは日付入力時に直接グループ名を更新するので、updateBasicInfo 関数は不要
+  // 基本情報更新：日付とプレイヤー名の入力によりグループ情報を更新
+  // 日付入力時、グループ名を日付で上書きする
   const handleBasicInfoChange = (field, value, index = null) => {
     if (field === 'date') {
       setBasicDate(value);
@@ -201,7 +201,9 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // トップページに戻る前にデータ分析モード（プレースホルダー）を切り替え
+  // CI環境下で警告をエラーとして扱うので、ここで未使用関数は削除済み
+
+  // データ分析モード（プレースホルダー）
   if (analysisMode) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
@@ -288,6 +290,7 @@ function App() {
             value={basicDate}
             onChange={(e) => {
               setBasicDate(e.target.value);
+              // 日付入力でグループ名を上書きする
               const updatedGroup = { ...currentGroup, date: e.target.value, name: e.target.value };
               setCurrentGroup(updatedGroup);
               setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
@@ -303,14 +306,7 @@ function App() {
               <input
                 type="text"
                 value={players[index]}
-                onChange={(e) => {
-                  const newPlayers = [...players];
-                  newPlayers[index] = e.target.value;
-                  setPlayers(newPlayers);
-                  const updatedGroup = { ...currentGroup, players: newPlayers };
-                  setCurrentGroup(updatedGroup);
-                  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-                }}
+                onChange={(e) => handleBasicInfoChange('player', e.target.value, index)}
                 placeholder="名前を入力"
                 style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               />
