@@ -45,11 +45,11 @@ function App() {
   const [groups, setGroups] = useState([]);
   // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
+  // グループ作成時は名前の入力は不要（初期値は "グループ名未設定" とする）
+  // 基本情報セクションで日付入力によりグループ名が更新される
+  const [newGroupName] = useState(''); // もはや使わないので、固定状態に
   
-  // ここではグループ作成時に名前の入力は不要とし、初期値は "グループ名未設定" とする
-  // 基本情報セクションで日付入力によりグループ名が更新されます
-  
-  // プレイヤー名は編集可能とするため、setPlayers を使用
+  // プレイヤー名は編集可能とする
   const [players, setPlayers] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -89,7 +89,7 @@ function App() {
     }
   };
 
-  // 新しいグループ作成（名前の入力は不要。初期値は "グループ名未設定" とする）
+  // 新しいグループ作成（名前入力不要、初期値 "グループ名未設定"）
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -198,7 +198,7 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // トップページに戻る前にデータ分析モードの切り替え（プレースホルダー）
+  // トップページに戻る前にデータ分析モード（プレースホルダー）を切り替え
   if (analysisMode) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
@@ -209,7 +209,7 @@ function App() {
           トップページに戻る
         </button>
         <h1>データ分析ページ（仮）</h1>
-        <p>ここでは、年間ごと、メンバーごとの集計・可視化を行う予定です。（詳細は後日実装）</p>
+        <p>ここでは、年間ごとやメンバーごとの集計・可視化を行う予定です。（詳細は後日実装）</p>
       </div>
     );
   }
