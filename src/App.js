@@ -10,7 +10,7 @@ const settings = {
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：持ち点を下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を、下3桁（百の位のみ判定）で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -21,6 +21,7 @@ function roundScore(score) {
 }
 
 // 各順位（非1位）の最終スコア計算
+// 計算式: 最終スコア = 順位点 - ((返し点 - (丸めた持ち点 * 1000)) / 1000)
 function calculateFinalScore(inputScore, rankIndex) {
   if (inputScore === '' || isNaN(Number(inputScore))) return 0;
   const score = Number(inputScore);
@@ -39,29 +40,29 @@ function calculateFinalScores(scores) {
 }
 
 function App() {
-  // グループ管理
+  // グループ管理用の状態
   const [groups, setGroups] = useState([]);
-  // currentGroup が null ならトップページ、存在すればグループ詳細ページ
+  // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
   const [newGroupName, setNewGroupName] = useState('');
   
-  // プレイヤー名と半荘結果入力用
-  const [players, setPlayers] = useState(['', '', '', '']);
+  // プレイヤー名の状態：更新が不要なら setPlayers は使わず、固定値として定義
+  const [players] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
     rank3: '',
     rank4: ''
   });
+  // 未使用の setMessage を削除。もしメッセージ表示が必要なら、使うように実装してください。
+  const [message, setMessage] = useState('');
   
   // 追加: 半荘設定用のチップ配点
   const [chipDistribution, setChipDistribution] = useState('');
-  // 追加: チップ入力（ゲーム結果履歴用の「チップ」行）
+  // 追加: ゲーム結果履歴テーブルの「チップ」行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // ゲーム結果履歴は currentGroup.games で管理
-
-  // Firebase連携：グループ作成時の保存
+  // Firebase連携：グループ作成時の書き込み
   const saveGroupToFirebase = async (groupData) => {
     try {
       await addDoc(collection(db, "groups"), groupData);
@@ -184,13 +185,6 @@ function App() {
     const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
     const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
     return - (distribution * (20 - chipInput)) / 100;
-  };
-
-  // 最終結果行：各プレイヤーの最終結果 = 半荘結果累計 + チップボーナス（両方とも千点単位）
-  const calculateFinalOverall = (idx) => {
-    const halfTotal = totalsRounded ? totalsRounded[idx] : 0;
-    const bonus = calculateChipBonus(["rank1", "rank2", "rank3", "rank4"][idx]);
-    return halfTotal + bonus;
   };
 
   // トップページ（グループ作成＋既存グループ一覧）
@@ -407,7 +401,6 @@ function App() {
                 {["rank1", "rank2", "rank3", "rank4"].map((r) => {
                   const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
                   const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-                  // bonus = - (distribution * (20 - chipInput)) / 100 を計算
                   const bonus = - (distribution * (20 - chipInput)) / 100;
                   return (
                     <td key={r} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
@@ -417,7 +410,7 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算、千点単位で表示） */}
+              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算） */}
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {
@@ -442,6 +435,8 @@ function App() {
           <p>まだ半荘結果がありません。</p>
         )}
       </div>
+
+      {message && <p style={{ color: 'green' }}>{message}</p>}
     </div>
   );
 }
