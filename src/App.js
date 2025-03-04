@@ -3,15 +3,14 @@ import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]
-// ※1位は後で符号反転で求める
+// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]（1位は後で符号反転で求める）
 const settings = {
   initialPoints: 25000,
   returnPoints: 30000,
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：入力された持ち点を、下3桁（百の位のみ判定）で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を、下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -41,14 +40,13 @@ function calculateFinalScores(scores) {
 }
 
 function App() {
-  // グループ管理用の状態
+  // グループ管理用
   const [groups, setGroups] = useState([]);
   // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
   const [newGroupName, setNewGroupName] = useState('');
   
-  // プレイヤー名および半荘結果入力用の状態
-  // ここでは players の変更は不要なら setPlayers は使わず、固定値として使用
+  // プレイヤー名（ここでは setPlayers は不要とするので固定）
   const [players] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -59,12 +57,10 @@ function App() {
   
   // 追加: 半荘設定用のチップ配点
   const [chipDistribution, setChipDistribution] = useState('');
-  // 追加: ゲーム結果履歴テーブルの「チップ」行の値
+  // 追加: チップ行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // ゲーム結果履歴は currentGroup.games に保持する（別途 games state は不要）
-  
-  // Firebase連携：グループ作成時の書き込み
+  // Firebase連携：グループ作成時
   const saveGroupToFirebase = async (groupData) => {
     try {
       await addDoc(collection(db, "groups"), groupData);
@@ -102,9 +98,8 @@ function App() {
 
   // 半荘結果追加
   const addGameScore = () => {
-    if (!currentGroup) return;
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
-    if (rank1 === '' || rank2 === '' || rank3 === '' || rank4 === '') return;
+    if (!currentGroup || rank1 === '' || rank2 === '' || rank3 === '' || rank4 === '') return;
     
     const finalScores = calculateFinalScores(currentGameScore);
     const newGame = {
@@ -139,7 +134,7 @@ function App() {
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
 
-  // 各行のゲーム結果を編集する関数
+  // ゲーム結果の各行を編集する関数
   const handleEditGameScore = (gameId, rankKey, newValue) => {
     const updatedGames = currentGroup.games.map(game => {
       if (game.id === gameId) {
@@ -166,7 +161,7 @@ function App() {
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
   };
 
-  // 総合結果の累計計算：各ゲームの最終スコア（×1000）の合計を、五捨六入で丸めた千点単位の値
+  // 総合結果の累計計算（各ゲームの最終スコア×1000 の合計を、五捨六入で丸めた千点単位）
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -181,17 +176,9 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // チップボーナスの自動計算：各プレイヤーごとに
-  // bonus = - (chipDistribution * (20 - chipInput)) / 100
-  // ※ここでは、値はすでに千点単位で表示するため、たとえば 300×(20-chipInput) /100 の結果が得られる
-  // 例: chipDistribution=300, chipInput=30 → bonus = - (300*(20-30))/100 = - (300*(-10))/100 = +3000/100 = +30
-  const calculateChipBonus = (r) => {
-    const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
-    const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-    return - (distribution * (20 - chipInput)) / 100;
-  };
+  // チップボーナスは最終結果行内でインライン計算するので、calculateChipBonus 関数は削除
 
-  // トップページ（グループ作成＋既存グループ一覧）表示
+  // トップページ表示
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -414,7 +401,7 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算、千点単位で表示） */}
+              {/* 最終結果行（半荘結果累計＋チップボーナス累計、各列の合算） */}
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {
