@@ -41,15 +41,13 @@ function calculateFinalScores(scores) {
 }
 
 function App() {
-  // グループ管理用の状態
+  // グループ管理用
   const [groups, setGroups] = useState([]);
   // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
-  // グループ作成時は名前の入力は不要（初期値は "グループ名未設定" とする）
-  // 基本情報セクションで日付入力によりグループ名が更新される
-  const [newGroupName] = useState(''); // もはや使わないので、固定状態に
   
-  // プレイヤー名は編集可能とする
+  // グループ作成時の名前入力は不要のため、初期値は "グループ名未設定" とする
+  // プレイヤー名は編集可能とするため、setPlayers を使用
   const [players, setPlayers] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -89,7 +87,7 @@ function App() {
     }
   };
 
-  // 新しいグループ作成（名前入力不要、初期値 "グループ名未設定"）
+  // 新しいグループ作成（名前入力は不要。初期値は "グループ名未設定"）
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -105,16 +103,21 @@ function App() {
   };
 
   // 基本情報更新：日付とプレイヤー名を更新し、グループ名を日付で更新する
-  const updateBasicInfo = () => {
-    if (!currentGroup) return;
-    const updatedGroup = { 
-      ...currentGroup, 
-      date: basicDate,
-      name: basicDate ? basicDate : currentGroup.name,
-      players: players
-    };
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+  // ここでは日付入力時に直接グループ名を更新するので、updateBasicInfo 関数は不要
+  const handleBasicInfoChange = (field, value, index = null) => {
+    if (field === 'date') {
+      setBasicDate(value);
+      const updatedGroup = { ...currentGroup, date: value, name: value };
+      setCurrentGroup(updatedGroup);
+      setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+    } else if (field === 'player' && index !== null) {
+      const newPlayers = [...players];
+      newPlayers[index] = value;
+      setPlayers(newPlayers);
+      const updatedGroup = { ...currentGroup, players: newPlayers };
+      setCurrentGroup(updatedGroup);
+      setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+    }
   };
 
   // 半荘結果追加
@@ -221,7 +224,7 @@ function App() {
         <h1 style={{ textAlign: 'center' }}>麻雀スコア計算アプリ - トップページ</h1>
         
         <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
-          <h2>新しいグループを作成</h2>
+          <h2>新しいグループ作成</h2>
           <button
             onClick={createNewGroup}
             style={{ padding: '8px 16px', fontSize: '16px' }}
@@ -285,7 +288,6 @@ function App() {
             value={basicDate}
             onChange={(e) => {
               setBasicDate(e.target.value);
-              // 日付をグループ名に反映する
               const updatedGroup = { ...currentGroup, date: e.target.value, name: e.target.value };
               setCurrentGroup(updatedGroup);
               setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
