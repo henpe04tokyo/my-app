@@ -3,14 +3,15 @@ import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]（1位は後で符号反転で求める）
+// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]
+// ※1位は後で符号反転で求める
 const settings = {
   initialPoints: 25000,
   returnPoints: 30000,
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：入力された持ち点を、下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -42,12 +43,12 @@ function calculateFinalScores(scores) {
 function App() {
   // グループ管理用
   const [groups, setGroups] = useState([]);
-  // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
+  // currentGroup が null ならトップページ、それ以外はグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
   const [newGroupName, setNewGroupName] = useState('');
-  
-  // プレイヤー名（ここでは setPlayers は不要とするので固定）
-  const [players] = useState(['', '', '', '']);
+
+  // プレイヤー名は編集できるようにするので setPlayers を使用
+  const [players, setPlayers] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
@@ -55,12 +56,18 @@ function App() {
     rank4: ''
   });
   
+  // 追加: 基本情報用の日付
+  const [basicDate, setBasicDate] = useState('');
+  
   // 追加: 半荘設定用のチップ配点
   const [chipDistribution, setChipDistribution] = useState('');
   // 追加: チップ行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // Firebase連携：グループ作成時
+  // 追加: データ分析モード用（トップページの「データ分析」ボタン用）
+  const [analysisMode, setAnalysisMode] = useState(false);
+
+  // Firebase連携：グループ作成時の保存
   const saveGroupToFirebase = async (groupData) => {
     try {
       await addDoc(collection(db, "groups"), groupData);
@@ -83,17 +90,34 @@ function App() {
   // 新しいグループ作成
   const createNewGroup = () => {
     if (!newGroupName.trim()) return;
+    // 基本情報として日付とプレイヤー名が入力されていれば、それを currentGroup に反映
+    const groupNameWithDate = basicDate ? `${basicDate} ${newGroupName.trim()}` : newGroupName.trim();
     const newGroup = {
       id: Date.now(),
-      name: newGroupName.trim(),
+      name: groupNameWithDate,
+      date: basicDate,
       settings: { ...settings, chipDistribution },
-      players: [...players],
+      players: players,
       games: []
     };
     setGroups(prev => [...prev, newGroup]);
     setCurrentGroup(newGroup);
     saveGroupToFirebase(newGroup);
     setNewGroupName('');
+  };
+
+  // グループ基本情報（プレイヤー名、日付）の更新
+  const updateBasicInfo = () => {
+    if (!currentGroup) return;
+    // グループ名に日付を反映（例： "2025-03-04 グループA"）
+    const updatedGroup = { 
+      ...currentGroup, 
+      date: basicDate,
+      name: basicDate ? `${basicDate} ${newGroupName || currentGroup.name}` : currentGroup.name,
+      players: players
+    };
+    setCurrentGroup(updatedGroup);
+    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
   };
 
   // 半荘結果追加
@@ -134,7 +158,7 @@ function App() {
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
 
-  // ゲーム結果の各行を編集する関数
+  // 各行のゲーム結果を編集する関数
   const handleEditGameScore = (gameId, rankKey, newValue) => {
     const updatedGames = currentGroup.games.map(game => {
       if (game.id === gameId) {
@@ -161,7 +185,7 @@ function App() {
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
   };
 
-  // 総合結果の累計計算（各ゲームの最終スコア×1000 の合計を、五捨六入で丸めた千点単位）
+  // 総合結果の累計計算：各ゲームの最終スコア（×1000）の合計を、五捨六入で丸めた千点単位の値
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -176,9 +200,23 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // チップボーナスは最終結果行内でインライン計算するので、calculateChipBonus 関数は削除
+  // トップページに戻る前に「データ分析」モードを追加（簡易プレースホルダー）
+  if (analysisMode) {
+    return (
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+        <button
+          onClick={() => setAnalysisMode(false)}
+          style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}
+        >
+          トップページに戻る
+        </button>
+        <h1>データ分析ページ（仮）</h1>
+        <p>ここでは、年間ごと、メンバーごとの集計・可視化を行う予定です。（詳細は後日実装）</p>
+      </div>
+    );
+  }
 
-  // トップページ表示
+  // トップページ表示（currentGroupがnullの場合）
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -190,7 +228,7 @@ function App() {
             type="text"
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
-            placeholder="グループ名"
+            placeholder="グループ名（例：麻雀会）"
             style={{ width: '100%', padding: '8px', fontSize: '16px' }}
           />
           <button
@@ -202,7 +240,7 @@ function App() {
         </div>
 
         {groups.length > 0 && (
-          <div style={{ border: '1px solid #ccc', padding: '15px' }}>
+          <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
             <h2>既存グループ一覧</h2>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {groups.map(g => (
@@ -218,6 +256,17 @@ function App() {
             </ul>
           </div>
         )}
+
+        {/* データ分析セクション */}
+        <div style={{ border: '1px solid #ccc', padding: '15px' }}>
+          <h2>データ分析</h2>
+          <button
+            onClick={() => setAnalysisMode(true)}
+            style={{ padding: '8px 16px', fontSize: '16px' }}
+          >
+            集計
+          </button>
+        </div>
       </div>
     );
   }
@@ -234,6 +283,43 @@ function App() {
       </button>
 
       <h1 style={{ textAlign: 'center' }}>{currentGroup.name}</h1>
+
+      {/* 基本情報セクション */}
+      <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
+        <h2>基本情報</h2>
+        <label>
+          日付:&nbsp;
+          <input 
+            type="date"
+            value={basicDate}
+            onChange={(e) => setBasicDate(e.target.value)}
+            style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+          />
+        </label>
+        <br /><br />
+        {["プレイヤー1", "プレイヤー2", "プレイヤー3", "プレイヤー4"].map((label, index) => (
+          <div key={index} style={{ marginBottom: '8px' }}>
+            <label>
+              {label} の名前:&nbsp;
+              <input
+                type="text"
+                value={players[index]}
+                onChange={(e) => {
+                  const newPlayers = [...players];
+                  newPlayers[index] = e.target.value;
+                  setPlayers(newPlayers);
+                  // currentGroup.players も更新する
+                  const updatedGroup = { ...currentGroup, players: newPlayers };
+                  setCurrentGroup(updatedGroup);
+                  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+                }}
+                placeholder="名前を入力"
+                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
 
       {/* 半荘設定セクション */}
       <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
@@ -292,30 +378,17 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{players[0] || 'プレイヤー1'}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {(calculateFinalScore(currentGameScore.rank1, 0) * 1000).toLocaleString()}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{players[1] || 'プレイヤー2'}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {(calculateFinalScore(currentGameScore.rank2, 1) * 1000).toLocaleString()}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{players[2] || 'プレイヤー3'}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {(calculateFinalScore(currentGameScore.rank3, 2) * 1000).toLocaleString()}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{players[3] || 'プレイヤー4'}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {(calculateFinalScore(currentGameScore.rank4, 3) * 1000).toLocaleString()}
-              </td>
-            </tr>
+            {players.map((p, idx) => (
+              <tr key={idx}>
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                  {p || `プレイヤー${idx + 1}`}
+                </td>
+                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                  {/* 半荘スコアは currentGameScore の入力値で計算 */}
+                  {(calculateFinalScore(currentGameScore[`rank${idx + 1}`], idx) * 1000).toLocaleString()}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -405,6 +478,7 @@ function App() {
               {(() => {
                 if (!totalsRounded) return null;
                 const overallTotals = ["rank1", "rank2", "rank3", "rank4"].map((r, idx) => {
+                  // チップボーナスを計算（÷100）
                   const bonus = - (chipDistribution !== '' ? Number(chipDistribution) : 0) * (20 - (chipRow[r] !== '' ? Number(chipRow[r]) : 20)) / 100;
                   return totalsRounded[idx] + bonus;
                 });
