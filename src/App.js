@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]（1位は後で符号反転で求める）
+// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]
+// ※1位は後で符号反転で求める
 const settings = {
   initialPoints: 25000,
   returnPoints: 30000,
@@ -40,13 +41,15 @@ function calculateFinalScores(scores) {
 }
 
 function App() {
-  // グループ管理用
+  // グループ管理用の状態
   const [groups, setGroups] = useState([]);
-  // currentGroup が null ならトップページ、存在すればグループ詳細ページ
+  // currentGroup が null ならトップページ、存在すればそのグループ詳細ページ
   const [currentGroup, setCurrentGroup] = useState(null);
-  const [newGroupName, setNewGroupName] = useState('');
   
-  // プレイヤー名：ここでは編集可能とするので setPlayers を使用
+  // ここではグループ作成時に名前の入力は不要とし、初期値は "グループ名未設定" とする
+  // 基本情報セクションで日付入力によりグループ名が更新されます
+  
+  // プレイヤー名は編集可能とするため、setPlayers を使用
   const [players, setPlayers] = useState(['', '', '', '']);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
@@ -63,10 +66,10 @@ function App() {
   // チップ行の値
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
-  // データ分析モード用
+  // データ分析モード用（プレースホルダー）
   const [analysisMode, setAnalysisMode] = useState(false);
 
-  // Firebase連携：グループ作成時
+  // Firebase連携：グループ作成時の保存
   const saveGroupToFirebase = async (groupData) => {
     try {
       await addDoc(collection(db, "groups"), groupData);
@@ -86,14 +89,12 @@ function App() {
     }
   };
 
-  // 新しいグループ作成
+  // 新しいグループ作成（名前の入力は不要。初期値は "グループ名未設定" とする）
   const createNewGroup = () => {
-    if (!newGroupName.trim()) return;
-    const groupNameWithDate = basicDate ? `${basicDate} ${newGroupName.trim()}` : newGroupName.trim();
     const newGroup = {
       id: Date.now(),
-      name: groupNameWithDate,
-      date: basicDate,
+      name: "グループ名未設定",
+      date: "",
       settings: { ...settings, chipDistribution },
       players: players,
       games: []
@@ -101,7 +102,19 @@ function App() {
     setGroups(prev => [...prev, newGroup]);
     setCurrentGroup(newGroup);
     saveGroupToFirebase(newGroup);
-    setNewGroupName('');
+  };
+
+  // 基本情報更新：日付とプレイヤー名を更新し、グループ名を日付で更新する
+  const updateBasicInfo = () => {
+    if (!currentGroup) return;
+    const updatedGroup = { 
+      ...currentGroup, 
+      date: basicDate,
+      name: basicDate ? basicDate : currentGroup.name,
+      players: players
+    };
+    setCurrentGroup(updatedGroup);
+    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
   };
 
   // 半荘結果追加
@@ -185,7 +198,7 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // トップページに戻る前にデータ分析モードを切り替える（簡易プレースホルダー）
+  // トップページに戻る前にデータ分析モードの切り替え（プレースホルダー）
   if (analysisMode) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
@@ -196,7 +209,7 @@ function App() {
           トップページに戻る
         </button>
         <h1>データ分析ページ（仮）</h1>
-        <p>ここでは、年間ごとやメンバーごとに集計・可視化を行う予定です。（詳細は後日実装）</p>
+        <p>ここでは、年間ごと、メンバーごとの集計・可視化を行う予定です。（詳細は後日実装）</p>
       </div>
     );
   }
@@ -209,18 +222,11 @@ function App() {
         
         <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
           <h2>新しいグループを作成</h2>
-          <input
-            type="text"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            placeholder="グループ名（例：麻雀会）"
-            style={{ width: '100%', padding: '8px', fontSize: '16px' }}
-          />
           <button
             onClick={createNewGroup}
-            style={{ padding: '8px 16px', marginTop: '10px', fontSize: '16px' }}
+            style={{ padding: '8px 16px', fontSize: '16px' }}
           >
-            作成
+            グループ作成
           </button>
         </div>
 
@@ -277,7 +283,13 @@ function App() {
           <input 
             type="date"
             value={basicDate}
-            onChange={(e) => setBasicDate(e.target.value)}
+            onChange={(e) => {
+              setBasicDate(e.target.value);
+              // 日付をグループ名に反映する
+              const updatedGroup = { ...currentGroup, date: e.target.value, name: e.target.value };
+              setCurrentGroup(updatedGroup);
+              setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+            }}
             style={{ width: '100%', padding: '8px', fontSize: '16px' }}
           />
         </label>
