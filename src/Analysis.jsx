@@ -64,7 +64,10 @@ function Analysis({ groups, onClose }) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <button onClick={onClose} style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}>
+      <button
+        onClick={onClose}
+        style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}
+      >
         トップページに戻る
       </button>
       <h1>データ分析</h1>
@@ -73,10 +76,16 @@ function Analysis({ groups, onClose }) {
         <div style={{ marginBottom: '10px' }}>
           <label>
             年別:&nbsp;
-            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ padding: '5px' }}>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              style={{ padding: '5px' }}
+            >
               <option value="">すべて</option>
               {allYears.map((y) => (
-                <option key={y} value={y}>{y}年</option>
+                <option key={y} value={y}>
+                  {y}年
+                </option>
               ))}
             </select>
           </label>
@@ -84,10 +93,16 @@ function Analysis({ groups, onClose }) {
         <div style={{ marginBottom: '10px' }}>
           <label>
             プレイヤー:&nbsp;
-            <select value={selectedPlayer} onChange={(e) => setSelectedPlayer(e.target.value)} style={{ padding: '5px' }}>
+            <select
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              style={{ padding: '5px' }}
+            >
               <option value="">すべて</option>
               {allPlayers.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
             </select>
           </label>
@@ -106,17 +121,29 @@ function Analysis({ groups, onClose }) {
           {tableData.rows.map((row, idx) => (
             <tr key={idx}>
               <td style={{ border: '1px solid #ccc', padding: '8px' }}>{row.groupLabel}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{row.finalResult.toLocaleString()}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{row.chipBonus.toLocaleString()}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{row.halfResult.toLocaleString()}</td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {row.finalResult.toLocaleString()}
+              </td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {row.chipBonus.toLocaleString()}
+              </td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {row.halfResult.toLocaleString()}
+              </td>
             </tr>
           ))}
           {tableData.rows.length > 0 && (
             <tr style={{ backgroundColor: '#ddd', fontWeight: 'bold' }}>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>合計</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{tableData.totalFinal.toLocaleString()}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{tableData.totalChip.toLocaleString()}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>{tableData.totalHalf.toLocaleString()}</td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>合計</td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {tableData.totalFinal.toLocaleString()}
+              </td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {tableData.totalChip.toLocaleString()}
+              </td>
+              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                {tableData.totalHalf.toLocaleString()}
+              </td>
             </tr>
           )}
         </tbody>

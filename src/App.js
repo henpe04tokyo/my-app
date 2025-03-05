@@ -25,7 +25,7 @@ function roundScore(score) {
  * calculateFinalScoresFromInputs:
  * 入力された各プレイヤーの持ち点から、持ち点の高低順に順位を決定し、
  * 各順位に応じた最終スコアを算出する関数。
- * 1位は他の合計の符号反転、非1位は順位点 - 差分。
+ * 1位は他の合計の符号反転、非1位は順位点 - 差分を計算する。
  * 結果はオブジェクト { [playerIndex]: score, ... } を返す。
  */
 function calculateFinalScoresFromInputs(inputs) {
@@ -33,10 +33,8 @@ function calculateFinalScoresFromInputs(inputs) {
     const index = Number(key.replace('rank', '')) - 1;
     return { index, score: Number(inputs[key]) };
   });
-  // 持ち点が高い順にソート
   arr.sort((a, b) => b.score - a.score);
   const result = {};
-  // 非1位は順位点を適用
   for (let pos = 1; pos < arr.length; pos++) {
     const diff = (settings.returnPoints - roundScore(arr[pos].score) * 1000) / 1000;
     result[arr[pos].index] = settings.rankPoints[pos] - diff;
@@ -79,31 +77,33 @@ function recalcFinalStats(group) {
   return stats;
 }
 
+/**
+ * calculateFinalOverallTotals:
+ * 現在のグループの finalStats から、各プレイヤーの最終結果（半荘結果合計 + チップボーナス合計）を配列で返す。
+ */
+function calculateFinalOverallTotals(currentGroup, players) {
+  if (!currentGroup || !currentGroup.finalStats) return players.map(() => 0);
+  return players.map(p => {
+    const key = p.trim();
+    return key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+  });
+}
+
 function App() {
-  // グループ管理
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
-
-  // プレイヤー名（編集可能）
   const [players, setPlayers] = useState(['', '', '', '']);
-  // 半荘結果入力：各プレイヤーの持ち点入力
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
     rank3: '',
     rank4: ''
   });
-  
-  // 基本情報：日付入力でグループ名更新
   const [basicDate, setBasicDate] = useState('');
-  
-  // 半荘設定用：チップ配点
   const [chipDistribution, setChipDistribution] = useState('');
-  // チップ入力用：各プレイヤーのチップ枚数を入力する行
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
 
-  // Firebase: グループ作成・更新
   const saveGroupToFirebase = async (groupData) => {
     try {
       const docRef = await addDoc(collection(db, "groups"), groupData);
@@ -112,6 +112,7 @@ function App() {
       console.error("グループ保存エラー:", error);
     }
   };
+
   async function updateGroupInFirebase(groupData) {
     try {
       const docRef = doc(collection(db, "groups"), String(groupData.id));
@@ -121,11 +122,11 @@ function App() {
       console.error("グループ更新エラー:", error);
     }
   }
+
   const saveGameResultToFirebase = async (updatedGroup) => {
     await updateGroupInFirebase(updatedGroup);
   };
 
-  // 新しいグループ作成（名前入力不要、初期値 "グループ名未設定"）
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -141,7 +142,6 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 半荘結果追加：全員の持ち点入力完了後、calculateFinalScoresFromInputs により順位を決定して最終スコア算出
   const addGameScore = () => {
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
@@ -179,7 +179,6 @@ function App() {
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
 
-  // ゲーム結果編集
   const handleEditGameScore = (gameId, rankKey, newValue) => {
     const updatedGames = currentGroup.games.map(game => {
       if (game.id === gameId) {
@@ -200,7 +199,6 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
-  // ゲーム結果削除
   const handleDeleteGame = (gameId) => {
     const updatedGames = currentGroup.games.filter(game => game.id !== gameId);
     const updatedGroup = { ...currentGroup, games: updatedGames };
@@ -210,7 +208,6 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
-  // 集計用：各ゲームの最終スコアの累計（千点単位で丸め）
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -432,14 +429,15 @@ function App() {
                 })}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
-              {/* 最終結果行 */}
+              {/* 最終結果行：半荘結果合計とチップボーナス合計の合算 */}
               <tr style={{ backgroundColor: '#ccc', fontWeight: 'bold' }}>
                 <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>最終結果</td>
-                {calculateTotals() && calculateTotals().map((total, idx) => (
-                  <td key={idx} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                    {total.toLocaleString()}
-                  </td>
-                ))}
+                {calculateTotals() &&
+                  calculateFinalOverallTotals(currentGroup, players).map((total, idx) => (
+                    <td key={idx} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                      {total.toLocaleString()}
+                    </td>
+                  ))}
                 <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
               </tr>
             </tbody>
