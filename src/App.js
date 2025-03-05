@@ -11,7 +11,7 @@ const settings = {
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：持ち点を下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -40,9 +40,8 @@ function calculateFinalScores(scores) {
 }
 
 /**
- * グループの games 配列から各プレイヤーごとの集計を再計算して、finalStats を返す。
- * finalStats は { [playerName]: { finalResult, chipBonus, halfResult } } の形を想定。
- * ここではシンプルに、各ゲームの finalScores を単純合算する例とします。
+ * グループの games 配列から各プレイヤーごとの集計を再計算し、finalStats を返す
+ * finalStats の形: { [playerName]: { finalResult, chipBonus, halfResult } }
  */
 function recalcFinalStats(group) {
   const stats = {};
@@ -61,7 +60,6 @@ function recalcFinalStats(group) {
       }
     });
   });
-  // 今回はチップボーナス等は 0 として halfResult = finalResult
   Object.keys(stats).forEach((p) => {
     stats[p].halfResult = stats[p].finalResult - stats[p].chipBonus;
   });
@@ -86,10 +84,9 @@ function App() {
   // 基本情報：日付入力でグループ名更新
   const [basicDate, setBasicDate] = useState('');
   
-  // 半荘設定用のチップ配点とチップ入力
+  // 半荘設定用：チップ配点
   const [chipDistribution, setChipDistribution] = useState('');
-  const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
-
+  
   // Firebase: グループ作成
   const saveGroupToFirebase = async (groupData) => {
     try {
@@ -101,7 +98,7 @@ function App() {
   };
 
   // Firebase: グループ更新
-  const updateGroupInFirebase = async (groupData) => {
+  async function updateGroupInFirebase(groupData) {
     try {
       const docRef = doc(collection(db, "groups"), String(groupData.id));
       await updateDoc(docRef, groupData);
@@ -109,14 +106,14 @@ function App() {
     } catch (error) {
       console.error("グループ更新エラー:", error);
     }
-  };
+  }
 
   // Firebase: ゲーム結果保存（グループ更新）
   const saveGameResultToFirebase = async (updatedGroup) => {
     await updateGroupInFirebase(updatedGroup);
   };
 
-  // 新しいグループ作成（名前入力は不要。初期値 "グループ名未設定"）
+  // 新しいグループ作成（名前入力不要、初期値 "グループ名未設定"）
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -132,10 +129,7 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 基本情報セクション：日付とプレイヤー名更新（直接 onChange 内で処理）
-  // → プレイヤー名入力では inline に更新
-  // → 日付入力ではその値をグループ名に上書き
-  // （handleBasicInfoChange 関数は定義せず、各 input の onChange で直接更新）
+  // 基本情報更新：日付およびプレイヤー名は各 input の onChange 内で直接更新するので、専用関数は不要
 
   // 半荘結果追加
   const addGameScore = () => {
@@ -164,7 +158,6 @@ function App() {
       ...currentGroup,
       games: [...currentGroup.games, newGame]
     };
-    // 集計済み情報再計算
     updatedGroup.finalStats = recalcFinalStats(updatedGroup);
 
     setCurrentGroup(updatedGroup);
@@ -174,7 +167,7 @@ function App() {
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
 
-  // ゲーム結果編集・削除は従来の処理
+  // ゲーム結果編集
   const handleEditGameScore = (gameId, rankKey, newValue) => {
     const updatedGames = currentGroup.games.map(game => {
       if (game.id === gameId) {
@@ -195,6 +188,7 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
+  // ゲーム結果削除
   const handleDeleteGame = (gameId) => {
     const updatedGames = currentGroup.games.filter(game => game.id !== gameId);
     const updatedGroup = { ...currentGroup, games: updatedGames };
@@ -204,7 +198,7 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
-  // 集計用：各ゲームの最終スコアの累計計算（千点単位で丸め）
+  // 集計用：各ゲームの最終スコアの累計（千点単位で丸め）
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -220,14 +214,12 @@ function App() {
 
   const totalsRounded = calculateTotals();
 
-  // 分析モード（Analysis.jsx へ遷移）
   if (analysisMode) {
     return (
       <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />
     );
   }
 
-  // トップページ表示（グループ未選択）
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -262,14 +254,13 @@ function App() {
     );
   }
 
-  // グループ詳細ページ表示
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <button onClick={() => setCurrentGroup(null)} style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}>
         トップページに戻る
       </button>
       <h1 style={{ textAlign: 'center' }}>{currentGroup.name}</h1>
-      
+
       {/* 基本情報セクション */}
       <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
         <h2>基本情報</h2>

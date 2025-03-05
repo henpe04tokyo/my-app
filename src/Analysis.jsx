@@ -1,14 +1,13 @@
 // src/Analysis.jsx
 import React, { useState, useMemo } from 'react';
 
-// 年抽出用（例："2025-03-01" から "2025" を抽出）
+// "YYYY-MM-DD" 形式の文字列から年を抜き出す
 function extractYear(dateStr) {
   if (!dateStr || dateStr.length < 4) return "";
   return dateStr.slice(0, 4);
 }
 
 function Analysis({ groups, onClose }) {
-  // 年リストの抽出
   const allYears = useMemo(() => {
     const years = new Set();
     groups.forEach(g => {
@@ -18,7 +17,6 @@ function Analysis({ groups, onClose }) {
     return Array.from(years).sort();
   }, [groups]);
 
-  // 全プレイヤーの抽出（finalStats に登録されているプレイヤー名）
   const allPlayers = useMemo(() => {
     const playersSet = new Set();
     groups.forEach(g => {
@@ -32,7 +30,6 @@ function Analysis({ groups, onClose }) {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
-  // フィルタリングしたグループ
   const filteredGroups = useMemo(() => {
     return groups.filter(g => {
       const groupYear = extractYear(g.date || g.name);
@@ -42,7 +39,6 @@ function Analysis({ groups, onClose }) {
     });
   }, [groups, selectedYear, selectedPlayer]);
 
-  // テーブル用データは各グループの finalStats を参照する
   const tableData = useMemo(() => {
     let rows = [];
     let totalFinal = 0;
