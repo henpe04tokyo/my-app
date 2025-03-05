@@ -8,7 +8,6 @@ function extractYear(dateStr) {
 }
 
 function Analysis({ groups, onClose }) {
-  // 全グループから年のリストを抽出
   const allYears = useMemo(() => {
     const years = new Set();
     groups.forEach(g => {
@@ -18,7 +17,6 @@ function Analysis({ groups, onClose }) {
     return Array.from(years).sort();
   }, [groups]);
 
-  // finalStats に登録されている全プレイヤーを抽出
   const allPlayers = useMemo(() => {
     const playersSet = new Set();
     groups.forEach(g => {
@@ -32,7 +30,6 @@ function Analysis({ groups, onClose }) {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
-  // フィルタリングしたグループ
   const filteredGroups = useMemo(() => {
     return groups.filter(g => {
       const groupYear = extractYear(g.date || g.name);
@@ -42,7 +39,6 @@ function Analysis({ groups, onClose }) {
     });
   }, [groups, selectedYear, selectedPlayer]);
 
-  // テーブル用データ：finalStats の数値はすでに千点単位（例：20＝20,000点）とするのでそのまま表示
   const tableData = useMemo(() => {
     let rows = [];
     let totalFinal = 0;
@@ -50,7 +46,7 @@ function Analysis({ groups, onClose }) {
     let totalHalf = 0;
     filteredGroups.forEach(g => {
       const stats = g.finalStats && selectedPlayer ? g.finalStats[selectedPlayer] : { finalResult: 0, chipBonus: 0, halfResult: 0 };
-      const finalResult = stats.finalResult; // 千点単位の値
+      const finalResult = stats.finalResult; // 既に千点単位の値
       const chipBonus = stats.chipBonus;
       const halfResult = stats.halfResult;
       rows.push({

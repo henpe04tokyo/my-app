@@ -11,7 +11,7 @@ const settings = {
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：持ち点を下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -30,19 +30,40 @@ function calculateFinalScore(inputScore, rankIndex) {
   return settings.rankPoints[rankIndex] - diff;
 }
 
-// 1位は非1位の合計の符号反転
-function calculateFinalScores(scores) {
-  const s2 = calculateFinalScore(scores.rank2, 1);
-  const s3 = calculateFinalScore(scores.rank3, 2);
-  const s4 = calculateFinalScore(scores.rank4, 3);
-  const s1 = - (s2 + s3 + s4);
-  return { rank1: s1, rank2: s2, rank3: s3, rank4: s4 };
+/**
+ * calculateFinalScoresFromInputs:
+ * 入力された各プレイヤーの持ち点から、持ち点の高低順に順位を決定し、
+ * 各順位に応じた最終スコアを算出する関数
+ * 1位は他の合計の符号反転、非1位は順位点 - 差分
+ * 結果はオブジェクト { [playerIndex]: score, ... } を返す
+ */
+function calculateFinalScoresFromInputs(inputs) {
+  const arr = Object.keys(inputs).map(key => {
+    const index = Number(key.replace('rank', '')) - 1;
+    return { index, score: Number(inputs[key]) };
+  });
+  // 持ち点が高い順にソート
+  arr.sort((a, b) => b.score - a.score);
+  const result = {};
+  // 非1位は順位点を適用
+  for (let pos = 1; pos < arr.length; pos++) {
+    const diff = (settings.returnPoints - roundScore(arr[pos].score) * 1000) / 1000;
+    result[arr[pos].index] = settings.rankPoints[pos] - diff;
+  }
+  const sumOthers = arr.slice(1).reduce((sum, item, pos) => {
+    const diff = (settings.returnPoints - roundScore(item.score) * 1000) / 1000;
+    return sum + (settings.rankPoints[pos + 1] - diff);
+  }, 0);
+  result[arr[0].index] = -sumOthers;
+  return result;
 }
 
 /**
- * ゲーム結果（games）から、各プレイヤーごとの最終集計を再計算し finalStats として返す。
- * finalStats の形: { [playerName]: { finalResult, chipBonus, halfResult } }
- * ここでは、単純に各ゲームの finalScores を合算したものとします。
+ * recalcFinalStats:
+ * グループの games 配列から各プレイヤーごとの集計を再計算し、
+ * finalStats を返す。finalStats の形は
+ * { [playerName]: { finalResult, chipBonus, halfResult } }
+ * ここでは、単純に各ゲームの finalScores を合算する。
  */
 function recalcFinalStats(group) {
   const stats = {};
@@ -68,12 +89,14 @@ function recalcFinalStats(group) {
 }
 
 function App() {
+  // グループ管理
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
 
-  // プレイヤー名は編集可能
+  // プレイヤー名（編集可能）
   const [players, setPlayers] = useState(['', '', '', '']);
+  // 半荘結果入力：各プレイヤーの持ち点入力（順番は入力順ではなく、後で持ち点の高低で順位決定）
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
@@ -81,7 +104,7 @@ function App() {
     rank4: ''
   });
   
-  // 基本情報：日付入力でグループ名を更新
+  // 基本情報：日付入力でグループ名更新
   const [basicDate, setBasicDate] = useState('');
   
   // 半荘設定用：チップ配点
@@ -96,6 +119,7 @@ function App() {
       console.error("グループ保存エラー:", error);
     }
   };
+
   async function updateGroupInFirebase(groupData) {
     try {
       const docRef = doc(collection(db, "groups"), String(groupData.id));
@@ -105,11 +129,12 @@ function App() {
       console.error("グループ更新エラー:", error);
     }
   }
+
   const saveGameResultToFirebase = async (updatedGroup) => {
     await updateGroupInFirebase(updatedGroup);
   };
 
-  // グループ作成時、名前入力は不要 → 初期値 "グループ名未設定"
+  // 新しいグループ作成（名前入力不要、初期値 "グループ名未設定"）
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -125,12 +150,19 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 半荘結果追加時、ゲーム結果追加後に finalStats を再計算
+  // 半荘結果追加：全員の持ち点入力完了後、calculateFinalScoresFromInputs で最終スコア算出
   const addGameScore = () => {
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
     
-    const finalScores = calculateFinalScores(currentGameScore);
+    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+    const finalScores = {
+      rank1: Number(finalScoresObj[0].toFixed(1)),
+      rank2: Number(finalScoresObj[1].toFixed(1)),
+      rank3: Number(finalScoresObj[2].toFixed(1)),
+      rank4: Number(finalScoresObj[3].toFixed(1))
+    };
+
     const newGame = {
       id: Date.now(),
       createdAt: new Date().toISOString(),
@@ -140,12 +172,7 @@ function App() {
         rank3: Number(rank3),
         rank4: Number(rank4)
       },
-      finalScores: {
-        rank1: Number(finalScores.rank1.toFixed(1)),
-        rank2: Number(finalScores.rank2.toFixed(1)),
-        rank3: Number(finalScores.rank3.toFixed(1)),
-        rank4: Number(finalScores.rank4.toFixed(1))
-      }
+      finalScores
     };
 
     const updatedGroup = {
@@ -192,7 +219,7 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
-  // 集計用（各ゲームの最終スコアの累計、千点単位で丸め）
+  // 集計用：各ゲームの最終スコア累計（千点単位で丸め）
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -207,14 +234,12 @@ function App() {
   };
   const totalsRounded = calculateTotals();
 
-  // analysisMode が true の場合、Analysis コンポーネントへ遷移
   if (analysisMode) {
     return (
       <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />
     );
   }
 
-  // トップページ（currentGroup 未選択）
   if (!currentGroup) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
@@ -249,7 +274,6 @@ function App() {
     );
   }
 
-  // グループ詳細ページ
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <button onClick={() => setCurrentGroup(null)} style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}>
@@ -257,7 +281,7 @@ function App() {
       </button>
       <h1 style={{ textAlign: 'center' }}>{currentGroup.name}</h1>
 
-      {/* 基本情報セクション */}
+      {/* 基本情報セクション（ラベルは固定 "プレイヤーX:"） */}
       <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
         <h2>基本情報</h2>
         <label>
@@ -279,7 +303,7 @@ function App() {
         {players.map((p, index) => (
           <div key={index} style={{ marginBottom: '8px' }}>
             <label>
-              {p.trim() ? `${p}の持ち点` : `プレイヤー${index + 1}の持ち点`}:&nbsp;
+              プレイヤー{index + 1}:&nbsp;
               <input
                 type="text"
                 value={players[index]}
@@ -321,7 +345,7 @@ function App() {
         </label>
       </div>
 
-      {/* 半荘結果入力フォーム（各プレイヤーの名前でラベル表示） */}
+      {/* 半荘結果入力フォーム（ラベルは、入力されたプレイヤー名があればその名前、未入力なら「プレイヤーXの持ち点」） */}
       <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px' }}>
         <h2>半荘結果入力</h2>
         {players.map((p, index) => (
