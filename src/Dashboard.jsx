@@ -1,6 +1,8 @@
 // src/Dashboard.jsx
 import React, { useState } from 'react';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { getAuth, signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
 import Analysis from './Analysis';
 
@@ -90,6 +92,19 @@ function calculateFinalOverallTotals(currentGroup, players) {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const auth = getAuth();
+
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (err) {
+      console.error("ログアウトエラー:", err);
+    }
+  };
+
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
@@ -223,9 +238,7 @@ const Dashboard = () => {
   };
 
   if (analysisMode) {
-    return (
-      <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />
-    );
+    return <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />;
   }
 
   if (!currentGroup) {
@@ -264,6 +277,13 @@ const Dashboard = () => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      {/* ヘッダー部分にログアウトボタンを追加 */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1>ダッシュボード</h1>
+        <button onClick={handleLogout} style={{ padding: '8px 16px' }}>
+          ログアウト
+        </button>
+      </header>
       <button onClick={() => setCurrentGroup(null)} style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}>
         トップページに戻る
       </button>

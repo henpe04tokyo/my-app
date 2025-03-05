@@ -1,6 +1,6 @@
 // src/Signup.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 
@@ -8,24 +8,36 @@ function Signup() {
   const auth = getAuth();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState('');
 
-  // 既にログインしている場合、会員登録ページにいる必要はないのでダッシュボードへ
   useEffect(() => {
     if (user) {
       navigate('/');
     }
   }, [user, navigate]);
 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState('');
+
+  // メール/パスワードでの会員登録
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // オプション：登録後に表示名を設定
+      // 登録後、表示名を設定（オプション）
       await updateProfile(userCredential.user, { displayName });
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Googleログインによる会員登録（新規登録時もログインとして扱われる）
+  const handleGoogleSignup = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -71,6 +83,9 @@ function Signup() {
           会員登録
         </button>
       </form>
+      <button onClick={handleGoogleSignup} style={{ padding: '10px 20px', marginBottom: '10px' }}>
+        Googleで登録
+      </button>
       <p>
         既にアカウントをお持ちですか？ <Link to="/login">ログインはこちら</Link>
       </p>
