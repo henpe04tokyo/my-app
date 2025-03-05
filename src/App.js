@@ -11,7 +11,7 @@ const settings = {
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：持ち点を下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -19,15 +19,6 @@ function roundScore(score) {
   const hundredDigit = Math.floor(remainder / 100);
   const base = Math.floor(score / 1000);
   return hundredDigit >= 6 ? base + 1 : base;
-}
-
-// 各順位（非1位）の最終スコア計算
-function calculateFinalScore(inputScore, rankIndex) {
-  if (inputScore === '' || isNaN(Number(inputScore))) return 0;
-  const score = Number(inputScore);
-  const rounded = roundScore(score);
-  const diff = (settings.returnPoints - rounded * 1000) / 1000;
-  return settings.rankPoints[rankIndex] - diff;
 }
 
 /**
@@ -63,7 +54,7 @@ function calculateFinalScoresFromInputs(inputs) {
  * グループの games 配列から各プレイヤーごとの集計を再計算し、
  * finalStats を返す。finalStats の形は
  * { [playerName]: { finalResult, chipBonus, halfResult } }
- * ここでは、単純に各ゲームの finalScores を合算する。
+ * ここでは、各ゲームの finalScores を単純合算する。
  */
 function recalcFinalStats(group) {
   const stats = {};
@@ -89,14 +80,13 @@ function recalcFinalStats(group) {
 }
 
 function App() {
-  // グループ管理
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
 
   // プレイヤー名（編集可能）
   const [players, setPlayers] = useState(['', '', '', '']);
-  // 半荘結果入力：各プレイヤーの持ち点入力（順番は入力順ではなく、後で持ち点の高低で順位決定）
+  // 半荘結果入力：各プレイヤーの持ち点入力
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
@@ -109,6 +99,8 @@ function App() {
   
   // 半荘設定用：チップ配点
   const [chipDistribution, setChipDistribution] = useState('');
+  // チップ入力用：各プレイヤーのチップ枚数を入力する行
+  const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
 
   // Firebase: グループ作成・更新
   const saveGroupToFirebase = async (groupData) => {
@@ -119,7 +111,6 @@ function App() {
       console.error("グループ保存エラー:", error);
     }
   };
-
   async function updateGroupInFirebase(groupData) {
     try {
       const docRef = doc(collection(db, "groups"), String(groupData.id));
@@ -129,7 +120,6 @@ function App() {
       console.error("グループ更新エラー:", error);
     }
   }
-
   const saveGameResultToFirebase = async (updatedGroup) => {
     await updateGroupInFirebase(updatedGroup);
   };
@@ -150,7 +140,7 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 半荘結果追加：全員の持ち点入力完了後、calculateFinalScoresFromInputs で最終スコア算出
+  // 半荘結果追加：入力完了後、calculateFinalScoresFromInputs で最終スコア算出
   const addGameScore = () => {
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
@@ -219,7 +209,7 @@ function App() {
     updateGroupInFirebase(updatedGroup);
   };
 
-  // 集計用：各ゲームの最終スコア累計（千点単位で丸め）
+  // 集計用：各ゲームの最終スコアの累計（千点単位で丸め）
   const calculateTotals = () => {
     if (!currentGroup || !currentGroup.games.length) return null;
     const totals = currentGroup.games.reduce((acc, game) => {
@@ -232,7 +222,7 @@ function App() {
     }, []);
     return totals.map(total => roundScore(total));
   };
-  const totalsRounded = calculateTotals();
+  // 使用していなかった totalsRounded を削除
 
   if (analysisMode) {
     return (
@@ -373,31 +363,6 @@ function App() {
         </button>
       </div>
 
-      {/* 半荘スコア表示 */}
-      <div style={{ marginBottom: '20px' }}>
-        <h2>半荘スコア</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#eee' }}>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>プレイヤー</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>総合点数</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((p, idx) => (
-              <tr key={idx}>
-                <td style={{ border: '1px solid #ccc', padding: '8px' }}>
-                  {p || `プレイヤー${idx + 1}`}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                  {(calculateFinalScore(currentGameScore[`rank${idx + 1}`], idx)).toLocaleString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
       {/* ゲーム結果履歴テーブル */}
       <div style={{ marginBottom: '20px' }}>
         <h2>ゲーム結果履歴</h2>
@@ -435,17 +400,48 @@ function App() {
                   </td>
                 </tr>
               ))}
-              {totalsRounded && (
-                <tr style={{ backgroundColor: '#ddd', fontWeight: 'bold' }}>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>合計</td>
-                  {totalsRounded.map((total, idx) => (
-                    <td key={idx} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                      {total.toLocaleString()}
+              {/* チップ入力行 */}
+              <tr style={{ backgroundColor: '#eee' }}>
+                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>チップ</td>
+                {["rank1", "rank2", "rank3", "rank4"].map((r) => (
+                  <td key={r} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                    <input
+                      type="number"
+                      value={chipRow[r]}
+                      onChange={(e) =>
+                        setChipRow({ ...chipRow, [r]: e.target.value })
+                      }
+                      style={{ width: '80px', textAlign: 'right' }}
+                    />
+                  </td>
+                ))}
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
+              </tr>
+              {/* チップボーナス行 */}
+              <tr style={{ backgroundColor: '#ddd', fontWeight: 'bold' }}>
+                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>チップボーナス</td>
+                {["rank1", "rank2", "rank3", "rank4"].map((r) => {
+                  const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
+                  const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
+                  const bonus = - (distribution * (20 - chipInput)) / 100;
+                  return (
+                    <td key={r} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                      {bonus.toLocaleString()}
                     </td>
-                  ))}
-                  <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
-                </tr>
-              )}
+                  );
+                })}
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
+              </tr>
+              {/* 最終結果行 */}
+              <tr style={{ backgroundColor: '#ccc', fontWeight: 'bold' }}>
+                <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>最終結果</td>
+                {calculateTotals() && calculateTotals().map((total, idx) => (
+                  <td key={idx} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
+                    {total.toLocaleString()}
+                  </td>
+                ))}
+                <td style={{ border: '1px solid #ccc', padding: '8px' }}></td>
+              </tr>
             </tbody>
           </table>
         ) : (
