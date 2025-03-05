@@ -11,7 +11,7 @@ const settings = {
   rankPoints: [30, 10, -10, -30]
 };
 
-// 「五捨六入」：持ち点を下3桁で丸め、千点単位の整数値として返す
+// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -24,9 +24,9 @@ function roundScore(score) {
 /**
  * calculateFinalScoresFromInputs:
  * 入力された各プレイヤーの持ち点から、持ち点の高低順に順位を決定し、
- * 各順位に応じた最終スコアを算出する関数
- * 1位は他の合計の符号反転、非1位は順位点 - 差分
- * 結果はオブジェクト { [playerIndex]: score, ... } を返す
+ * 各順位に応じた最終スコアを算出する関数。
+ * 1位は他の合計の符号反転、非1位は順位点 - 差分。
+ * 結果はオブジェクト { [playerIndex]: score, ... } を返す。
  */
 function calculateFinalScoresFromInputs(inputs) {
   const arr = Object.keys(inputs).map(key => {
@@ -53,7 +53,7 @@ function calculateFinalScoresFromInputs(inputs) {
  * recalcFinalStats:
  * グループの games 配列から各プレイヤーごとの集計を再計算し、
  * finalStats を返す。finalStats の形は
- * { [playerName]: { finalResult, chipBonus, halfResult } }
+ * { [playerName]: { finalResult, chipBonus, halfResult } } 。
  * ここでは、各ゲームの finalScores を単純合算する。
  */
 function recalcFinalStats(group) {
@@ -80,6 +80,7 @@ function recalcFinalStats(group) {
 }
 
 function App() {
+  // グループ管理
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
@@ -140,7 +141,7 @@ function App() {
     saveGroupToFirebase(newGroup);
   };
 
-  // 半荘結果追加：入力完了後、calculateFinalScoresFromInputs で最終スコア算出
+  // 半荘結果追加：全員の持ち点入力完了後、calculateFinalScoresFromInputs により順位を決定して最終スコア算出
   const addGameScore = () => {
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
@@ -222,7 +223,6 @@ function App() {
     }, []);
     return totals.map(total => roundScore(total));
   };
-  // 使用していなかった totalsRounded を削除
 
   if (analysisMode) {
     return (
