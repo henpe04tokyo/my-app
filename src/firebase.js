@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// Firebase コンソールから取得した設定情報
+// Firebase コンソールから取得した設定情報（変更なし）
 const firebaseConfig = {
   apiKey: "AIzaSyDdULG2JiqKTIkF1AvcZeJse8vQHVzijnA",
   authDomain: "mahjong-first.firebaseapp.com",
