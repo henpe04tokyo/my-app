@@ -1,8 +1,8 @@
 // src/firebase.js
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
-// Firebase コンソールから取得した設定情報（変更なし）
 const firebaseConfig = {
   apiKey: "AIzaSyDdULG2JiqKTIkF1AvcZeJse8vQHVzijnA",
   authDomain: "mahjong-first.firebaseapp.com",
@@ -14,4 +14,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+export { app, db, auth };
