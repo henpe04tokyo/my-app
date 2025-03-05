@@ -1,14 +1,14 @@
+// src/Login.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 
 function Login() {
   const auth = getAuth();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext); // 現在のログインユーザー情報を取得
+  const { user } = useContext(AuthContext);
 
-  // もし user が存在するなら自動的にダッシュボードにリダイレクトする
   useEffect(() => {
     if (user) {
       navigate('/');
@@ -23,7 +23,7 @@ function Login() {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/'); // ログイン成功後にリダイレクト
+      navigate('/');
     } catch (err) {
       setError(err.message);
     }
@@ -64,13 +64,14 @@ function Login() {
             style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
           />
         </div>
-        <button type="submit" style={{ padding: '10px 20px', marginBottom: '10px' }}>
-          ログイン
-        </button>
+        <button type="submit" style={{ padding: '10px 20px', marginBottom: '10px' }}>ログイン</button>
       </form>
-      <button onClick={handleGoogleLogin} style={{ padding: '10px 20px' }}>
+      <button onClick={handleGoogleLogin} style={{ padding: '10px 20px', marginBottom: '10px' }}>
         Googleでログイン
       </button>
+      <p>
+        新規登録は <Link to="/signup">こちら</Link>
+      </p>
     </div>
   );
 }
