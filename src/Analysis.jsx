@@ -1,4 +1,3 @@
-// src/Analysis.jsx
 import React, { useState, useMemo } from 'react';
 
 // "YYYY-MM-DD" 形式の文字列から年を抜き出す
@@ -46,7 +45,7 @@ function Analysis({ groups, onClose }) {
     let totalHalf = 0;
     filteredGroups.forEach(g => {
       const stats = g.finalStats && selectedPlayer ? g.finalStats[selectedPlayer] : { finalResult: 0, chipBonus: 0, halfResult: 0 };
-      const finalResult = stats.finalResult; // 既に千点単位の値
+      const finalResult = stats.finalResult;
       const chipBonus = stats.chipBonus;
       const halfResult = stats.halfResult;
       rows.push({
@@ -63,23 +62,31 @@ function Analysis({ groups, onClose }) {
   }, [filteredGroups, selectedPlayer]);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <button
         onClick={onClose}
-        style={{ padding: '8px 16px', fontSize: '16px', marginBottom: '20px' }}
+        className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 ease-in-out flex items-center"
       >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
         トップページに戻る
       </button>
-      <h1>データ分析</h1>
-      <div style={{ marginBottom: '20px', border: '1px solid #ccc', padding: '15px' }}>
-        <h2>フィルタ</h2>
-        <div style={{ marginBottom: '10px' }}>
-          <label>
-            年別:&nbsp;
+      
+      <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">データ分析</h1>
+      
+      <div className="mb-8 bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-700 mb-3">フィルタ</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              年別
+            </label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              style={{ padding: '5px' }}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="">すべて</option>
               {allYears.map((y) => (
@@ -88,15 +95,16 @@ function Analysis({ groups, onClose }) {
                 </option>
               ))}
             </select>
-          </label>
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>
-            プレイヤー:&nbsp;
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              プレイヤー
+            </label>
             <select
               value={selectedPlayer}
               onChange={(e) => setSelectedPlayer(e.target.value)}
-              style={{ padding: '5px' }}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="">すべて</option>
               {allPlayers.map((p) => (
@@ -105,50 +113,72 @@ function Analysis({ groups, onClose }) {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#eee' }}>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>グループ</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>最終結果</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>チップボーナス</th>
-            <th style={{ border: '1px solid #ccc', padding: '8px' }}>半荘結果</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tableData.rows.map((row, idx) => (
-            <tr key={idx}>
-              <td style={{ border: '1px solid #ccc', padding: '8px' }}>{row.groupLabel}</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {row.finalResult.toLocaleString()}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {row.chipBonus.toLocaleString()}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {row.halfResult.toLocaleString()}
-              </td>
-            </tr>
-          ))}
-          {tableData.rows.length > 0 && (
-            <tr style={{ backgroundColor: '#ddd', fontWeight: 'bold' }}>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>合計</td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {tableData.totalFinal.toLocaleString()}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {tableData.totalChip.toLocaleString()}
-              </td>
-              <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'right' }}>
-                {tableData.totalHalf.toLocaleString()}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {tableData.rows.length === 0 && <p>該当データがありません。</p>}
+      
+      {tableData.rows.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                  グループ
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                  最終結果
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                  チップボーナス
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                  半荘結果
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {tableData.rows.map((row, idx) => (
+                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                    {row.groupLabel}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                    {row.finalResult.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                    {row.chipBonus.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    {row.halfResult.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+              
+              <tr className="bg-indigo-50 font-semibold">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 text-center">
+                  合計
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                  {tableData.totalFinal.toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                  {tableData.totalChip.toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                  {tableData.totalHalf.toLocaleString()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="mt-2 text-gray-700">該当データがありません。</p>
+        </div>
+      )}
     </div>
   );
 }
