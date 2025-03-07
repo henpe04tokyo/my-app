@@ -1,13 +1,17 @@
-// src/App.js
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import PrivateRoute from './PrivateRoute';
-import { AuthProvider } from './AuthContext';
-import Dashboard from './Dashboard';
-import Login from './Login';
-import Signup from './Signup';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import PrivateRoute from "./PrivateRoute";
+import { AuthProvider } from "./AuthContext";
+import Dashboard from "./Dashboard";
+import Login from "./Login";
+import Signup from "./Signup";
+
+// Firebase の設定をインポート（これを追加）
+import { app } from "./config/firebaseConfig"; // Firebase を初期化
 
 function App() {
+  console.log("Firebase initialized:", app); // Firebase が適用されているか確認
+
   return (
     <AuthProvider>
       <Router>
