@@ -81,21 +81,30 @@ function recalcFinalStats(group) {
 
 /**
  * calculateFinalOverallTotals:
- * 現在のグループの finalStats から、各プレイヤーの最終結果（半荘結果合計 + チップボーナス）を
- * 配列で返す。chipRow, chipDistribution から各列のチップボーナスを算出して加算します。
+ * 現在のグループの finalStats から、各プレイヤーの半荘結果合計に、
+ * 「(chipInput - 20) * chipDistribution / 100」のチップボーナスを加算した値を返す。
  */
 function calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistribution) {
   if (!currentGroup || !currentGroup.finalStats) return players.map(() => 0);
-  return players.map((p, i) => {
-    const key = p.trim();
-    const base = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+  return players.map((playerName, i) => {
+    const key = playerName.trim();
+    // ベースの半荘結果合計
+    const baseScore = key && currentGroup.finalStats[key]
+      ? currentGroup.finalStats[key].finalResult
+      : 0;
+    // キーは "rank1", "rank2", … として扱う
     const rankKey = `rank${i + 1}`;
+    // ユーザー入力されたチップ枚数。未入力の場合は20枚とみなす
     const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
+    // チップ配点。未入力の場合は0とする
     const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-    const bonus = - (distribution * (20 - chipInput)) / 100;
-    return base + bonus;
+    // チップボーナスは (chipInput - 20) * distribution / 100
+    const bonus = ((chipInput - 20) * distribution) / 100;
+    return baseScore + bonus;
   });
 }
+
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
