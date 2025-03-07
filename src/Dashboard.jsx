@@ -81,13 +81,19 @@ function recalcFinalStats(group) {
 
 /**
  * calculateFinalOverallTotals:
- * 現在のグループの finalStats から、各プレイヤーの最終結果（半荘結果合計 + チップボーナス合計）を配列で返す。
+ * 現在のグループの finalStats から、各プレイヤーの最終結果（半荘結果合計 + チップボーナス）を
+ * 配列で返す。chipRow, chipDistribution から各列のチップボーナスを算出して加算します。
  */
-function calculateFinalOverallTotals(currentGroup, players) {
+function calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistribution) {
   if (!currentGroup || !currentGroup.finalStats) return players.map(() => 0);
-  return players.map(p => {
+  return players.map((p, i) => {
     const key = p.trim();
-    return key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+    const base = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+    const rankKey = `rank${i + 1}`;
+    const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
+    const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
+    const bonus = - (distribution * (20 - chipInput)) / 100;
+    return base + bonus;
   });
 }
 
@@ -244,7 +250,7 @@ const Dashboard = () => {
   if (!currentGroup) {
     return (
       <div className="container mx-auto max-w-4xl px-4 py-8">
-        <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">麻雀スコア計算アプリ</h1>
+        <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">麻雀スコア計算アプリ - トップページ</h1>
         
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           <h2 className="mb-4 text-xl font-semibold text-gray-800">新しいグループ作成</h2>
@@ -459,7 +465,6 @@ const Dashboard = () => {
                       </td>
                     </tr>
                   ))}
-                  
                   {/* チップ入力行 */}
                   <tr className="bg-gray-50">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップ</td>
@@ -477,7 +482,6 @@ const Dashboard = () => {
                     ))}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
-                  
                   {/* チップボーナス行 */}
                   <tr className="bg-indigo-50">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップボーナス</td>
@@ -493,12 +497,11 @@ const Dashboard = () => {
                     })}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
-                  
-                  {/* 最終結果行 */}
+                  {/* 最終結果行：半荘結果合計とチップボーナス合計の合算 */}
                   <tr className="bg-indigo-100">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-bold text-gray-900">最終結果</td>
                     {calculateTotals() &&
-                      calculateFinalOverallTotals(currentGroup, players).map((total, idx) => (
+                      calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistribution).map((total, idx) => (
                         <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-bold text-gray-900">
                           {total.toLocaleString()}
                         </td>
