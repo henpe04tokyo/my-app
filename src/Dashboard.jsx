@@ -79,30 +79,6 @@ function recalcFinalStats(group) {
   return stats;
 }
 
-/**
- * calculateFinalOverallTotals:
- * 現在のグループの finalStats から、各プレイヤーの半荘結果合計に、
- * 「(chipInput - 20) * chipDistribution / 100」のチップボーナスを加算した値を返す。
- */
-function calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistribution) {
-  if (!currentGroup || !currentGroup.finalStats) return players.map(() => 0);
-  return players.map((playerName, i) => {
-    const key = playerName.trim();
-    // ここを halfResult ではなく finalResult に変更
-    const baseScore = key && currentGroup.finalStats[key]
-      ? currentGroup.finalStats[key].finalResult
-      : 0;
-    const rankKey = `rank${i + 1}`;
-    const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
-    const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-    const bonus = ((chipInput - 20) * distribution) / 100;
-    return baseScore + bonus;
-  });
-}
-
-
-
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const auth = getAuth();
@@ -234,19 +210,6 @@ const Dashboard = () => {
     setCurrentGroup(updatedGroup);
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
     updateGroupInFirebase(updatedGroup);
-  };
-
-  const calculateTotals = () => {
-    if (!currentGroup || !currentGroup.games.length) return null;
-    const totals = currentGroup.games.reduce((acc, game) => {
-      game.finalScores &&
-        Object.keys(game.finalScores).forEach((key, idx) => {
-          if (!acc[idx]) acc[idx] = 0;
-          acc[idx] += game.finalScores[key] * 1000;
-        });
-      return acc;
-    }, []);
-    return totals.map(total => roundScore(total));
   };
 
   if (analysisMode) {
@@ -488,30 +451,53 @@ const Dashboard = () => {
                     ))}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
+                  {/* 半荘結果合計行 */}
+                  <tr className="bg-gray-100">
+                    <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">半荘結果合計</td>
+                    {players.map((p, idx) => {
+                      const key = p.trim();
+                      const score = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+                      return (
+                        <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-700">
+                          {score.toLocaleString()}
+                        </td>
+                      );
+                    })}
+                    <td className="whitespace-nowrap px-6 py-4"></td>
+                  </tr>
                   {/* チップボーナス行 */}
                   <tr className="bg-indigo-50">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップボーナス</td>
-                    {["rank1", "rank2", "rank3", "rank4"].map((r) => {
-                      const chipInput = chipRow[r] !== '' ? Number(chipRow[r]) : 20;
+                    {players.map((p, idx) => {
+                      const rankKey = `rank${idx + 1}`;
+                      const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
                       const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
                       const bonus = - (distribution * (20 - chipInput)) / 100;
                       return (
-                        <td key={r} className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-indigo-600">
+                        <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-indigo-600">
                           {bonus.toLocaleString()}
                         </td>
                       );
                     })}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
-                  {/* 最終結果行：半荘結果合計とチップボーナス合計の合算 */}
+                  {/* 最終結果行：半荘結果合計とチップボーナスの合算 */}
                   <tr className="bg-indigo-100">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-bold text-gray-900">最終結果</td>
-                    {calculateTotals() &&
-                      calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistribution).map((total, idx) => (
+                    {players.map((p, idx) => {
+                      const key = p.trim();
+                      const finalResult = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+                      const rankKey = `rank${idx + 1}`;
+                      const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
+                      const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
+                      const bonus = - (distribution * (20 - chipInput)) / 100;
+                      const total = finalResult + bonus;
+                      return (
                         <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-bold text-gray-900">
                           {total.toLocaleString()}
                         </td>
-                      ))}
+                      );
+                    })}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
                 </tbody>
