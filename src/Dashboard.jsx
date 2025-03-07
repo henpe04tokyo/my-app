@@ -58,26 +58,31 @@ function calculateFinalScoresFromInputs(inputs) {
  */
 function recalcFinalStats(group) {
   const stats = {};
+  // プレイヤー名をキーに初期値を設定
   group.players.forEach((p) => {
-    if (p.trim()) {
-      stats[p.trim()] = { finalResult: 0, chipBonus: 0, halfResult: 0 };
+    const name = p.trim();
+    if (name) {
+      stats[name] = { finalResult: 0, chipBonus: 0, halfResult: 0 };
     }
   });
+  // 各ゲームの finalScores を、キー（"rank1", "rank2", …）から直接対応するプレイヤーに加算
   group.games.forEach((game) => {
-    group.players.forEach((p, index) => {
-      const key = p.trim();
-      if (key && game.finalScores) {
-        const rankKey = `rank${index + 1}`;
-        const score = game.finalScores[rankKey] || 0;
-        stats[key].finalResult += score;
+    Object.keys(game.finalScores).forEach((rankKey) => {
+      // rankKey からプレイヤーのインデックスを取得（例："rank1" -> 0）
+      const playerIndex = Number(rankKey.replace("rank", "")) - 1;
+      const playerName = group.players[playerIndex] && group.players[playerIndex].trim();
+      if (playerName && game.finalScores[rankKey] != null) {
+        stats[playerName].finalResult += Number(game.finalScores[rankKey]);
       }
     });
   });
-  Object.keys(stats).forEach((p) => {
-    stats[p].halfResult = stats[p].finalResult - stats[p].chipBonus;
+  // halfResult の計算（現状は finalResult から chipBonus を引く）
+  Object.keys(stats).forEach((name) => {
+    stats[name].halfResult = stats[name].finalResult - stats[name].chipBonus;
   });
   return stats;
 }
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
