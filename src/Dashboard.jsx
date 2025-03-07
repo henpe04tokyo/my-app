@@ -1,4 +1,5 @@
 // src/Dashboard.jsx
+
 import React, { useState } from 'react';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -6,14 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
 import Analysis from './Analysis';
 
-// 固定設定：初期持ち点25,000点、返し点30,000点、順位点 [30, 10, -10, -30]
+// --- 固定設定 ---
 const settings = {
-  initialPoints: 25000,
-  returnPoints: 30000,
-  rankPoints: [30, 10, -10, -30]
+  initialPoints: 25000,  // 初期持ち点
+  returnPoints: 30000,   // 返し点
+  rankPoints: [30, 10, -10, -30] // 順位点
 };
 
-// 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
+// --- 「五捨六入」：下3桁で丸め、千点単位で返す関数（必要に応じて利用） ---
 function roundScore(score) {
   if (isNaN(score)) return 0;
   const remainder = score % 1000;
@@ -24,65 +25,84 @@ function roundScore(score) {
 }
 
 /**
- * calculateFinalScoresFromInputs:
- * 入力された各プレイヤーの持ち点から、持ち点の高低順に順位を決定し、
- * 各順位に応じた最終スコアを算出する関数。
- * 1位は他の合計の符号反転、非1位は順位点 - 差分を計算する。
- * 結果はオブジェクト { [playerIndex]: score, ... } を返す。
+ * 入力された各プレイヤーの持ち点 (inputs) から順位を決定し、
+ * 最終スコアを算出して返す。
+ *  - 1位：他プレイヤーの合計を符号反転した値
+ *  - 2~4位：順位点 - (返し点 - 持ち点の千点単位) の差分
  */
 function calculateFinalScoresFromInputs(inputs) {
+  // inputs例: { rank1: 51000, rank2: 8000, rank3: -15000, rank4: -44000 }
+  // ※ マイナスは実際は無いかもしれませんが、ここでは例として。
+  
+  // オブジェクトを配列に変換し、score の高い順にソート
   const arr = Object.keys(inputs).map(key => {
     const index = Number(key.replace('rank', '')) - 1;
     return { index, score: Number(inputs[key]) };
   });
   arr.sort((a, b) => b.score - a.score);
+
+  // 計算結果を格納するオブジェクト
   const result = {};
+
+  // 1位以外を先に計算
   for (let pos = 1; pos < arr.length; pos++) {
+    // 千点単位の差分を計算（例：30000 - 21000 = 9000 → 9.0）
     const diff = (settings.returnPoints - roundScore(arr[pos].score) * 1000) / 1000;
+    // 順位点 - diff
     result[arr[pos].index] = settings.rankPoints[pos] - diff;
   }
+
+  // 1位のスコアは「他のプレイヤーの合計を符号反転」
   const sumOthers = arr.slice(1).reduce((sum, item, pos) => {
     const diff = (settings.returnPoints - roundScore(item.score) * 1000) / 1000;
     return sum + (settings.rankPoints[pos + 1] - diff);
   }, 0);
   result[arr[0].index] = -sumOthers;
+
+  // 小数点が出る可能性を排除したい場合、Math.round などで整数化する
+  // 今回は整数にしたいので、Number(...) で変換し Math.round を使っておく
+  Object.keys(result).forEach((k) => {
+    result[k] = Math.round(result[k]);
+  });
+
   return result;
 }
 
 /**
- * recalcFinalStats:
- * グループの games 配列から各プレイヤーごとの集計を再計算し、
- * finalStats を返す。finalStats の形は
- * { [playerName]: { finalResult, chipBonus, halfResult } } 。
- * ここでは、各ゲームの finalScores を単純合算する。
+ * グループ内の各ゲームの finalScores を合計して、finalStats を作成する関数。
+ *  - finalResult: 各プレイヤーの累計最終スコア
+ *  - chipBonus, halfResult: 必要に応じて使う
  */
 function recalcFinalStats(group) {
   const stats = {};
-  // プレイヤー名をキーに初期値を設定
+  // プレイヤー名をキーに初期値をセット
   group.players.forEach((p) => {
     const name = p.trim();
     if (name) {
       stats[name] = { finalResult: 0, chipBonus: 0, halfResult: 0 };
     }
   });
-  // 各ゲームの finalScores を、キー（"rank1", "rank2", …）から直接対応するプレイヤーに加算
+
+  // 各ゲームの finalScores を合計
   group.games.forEach((game) => {
-    Object.keys(game.finalScores).forEach((rankKey) => {
-      // rankKey からプレイヤーのインデックスを取得（例："rank1" -> 0）
-      const playerIndex = Number(rankKey.replace("rank", "")) - 1;
-      const playerName = group.players[playerIndex] && group.players[playerIndex].trim();
-      if (playerName && game.finalScores[rankKey] != null) {
-        stats[playerName].finalResult += Number(game.finalScores[rankKey]);
+    if (game.finalScores) {
+      for (let i = 1; i <= 4; i++) {
+        const rankKey = `rank${i}`;
+        const playerName = group.players[i - 1]?.trim();
+        if (playerName && typeof game.finalScores[rankKey] === 'number') {
+          stats[playerName].finalResult += game.finalScores[rankKey];
+        }
       }
-    });
+    }
   });
-  // halfResult の計算（現状は finalResult から chipBonus を引く）
+
+  // halfResult = finalResult - chipBonus（現状 chipBonus は未使用）
   Object.keys(stats).forEach((name) => {
     stats[name].halfResult = stats[name].finalResult - stats[name].chipBonus;
   });
+
   return stats;
 }
-
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -98,21 +118,32 @@ const Dashboard = () => {
     }
   };
 
+  // -------------------------
+  // ステート管理
+  // -------------------------
   const [groups, setGroups] = useState([]);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [analysisMode, setAnalysisMode] = useState(false);
+
+  // プレイヤー名
   const [players, setPlayers] = useState(['', '', '', '']);
+
+  // 今回入力中のゲームの持ち点
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
     rank3: '',
     rank4: ''
   });
+
+  // 日付・チップ関連
   const [basicDate, setBasicDate] = useState('');
   const [chipDistribution, setChipDistribution] = useState('');
   const [chipRow, setChipRow] = useState({ rank1: '', rank2: '', rank3: '', rank4: '' });
 
-  // Firestore へのデータ保存関連
+  // -------------------------
+  // Firestore 関連
+  // -------------------------
   const saveGroupToFirebase = async (groupData) => {
     try {
       const docRef = await addDoc(collection(db, "groups"), groupData);
@@ -136,6 +167,9 @@ const Dashboard = () => {
     await updateGroupInFirebase(updatedGroup);
   };
 
+  // -------------------------
+  // グループ関連操作
+  // -------------------------
   const createNewGroup = () => {
     const newGroup = {
       id: Date.now(),
@@ -151,21 +185,27 @@ const Dashboard = () => {
     saveGroupToFirebase(newGroup);
   };
 
+  // 半荘結果を追加
   const addGameScore = () => {
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
-    
+
+    // 入力された持ち点をもとに最終スコアを計算
     const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+    // 小数点不要なら Number(...) で変換し Math.round しているのでOK
+    // finalScoresObj は { 0: 50, 1: 10, 2: -15, 3: -45 } のような形
+    // rank1 ~ rank4 の形に再マッピング
     const finalScores = {
-      rank1: Number(finalScoresObj[0].toFixed(1)),
-      rank2: Number(finalScoresObj[1].toFixed(1)),
-      rank3: Number(finalScoresObj[2].toFixed(1)),
-      rank4: Number(finalScoresObj[3].toFixed(1))
+      rank1: finalScoresObj[0],
+      rank2: finalScoresObj[1],
+      rank3: finalScoresObj[2],
+      rank4: finalScoresObj[3]
     };
 
     const newGame = {
       id: Date.now(),
       createdAt: new Date().toISOString(),
+      // 参考までに「持ち点」も保存
       inputScores: {
         rank1: Number(rank1),
         rank2: Number(rank2),
@@ -175,6 +215,7 @@ const Dashboard = () => {
       finalScores
     };
 
+    // グループ更新
     const updatedGroup = {
       ...currentGroup,
       games: [...currentGroup.games, newGame]
@@ -185,9 +226,11 @@ const Dashboard = () => {
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
     saveGameResultToFirebase(updatedGroup);
 
+    // 入力欄クリア
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
 
+  // ゲーム結果を編集（ユーザーがテーブル上で最終スコアを編集したとき）
   const handleEditGameScore = (gameId, rankKey, newValue) => {
     const updatedGames = currentGroup.games.map(game => {
       if (game.id === gameId) {
@@ -195,33 +238,41 @@ const Dashboard = () => {
           ...game,
           finalScores: {
             ...game.finalScores,
-            [rankKey]: Number(newValue)
+            [rankKey]: Number(newValue) // 入力を数値化
           }
         };
       }
       return game;
     });
+
     const updatedGroup = { ...currentGroup, games: updatedGames };
     updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+
     setCurrentGroup(updatedGroup);
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
     updateGroupInFirebase(updatedGroup);
   };
 
+  // ゲーム結果を削除
   const handleDeleteGame = (gameId) => {
     const updatedGames = currentGroup.games.filter(game => game.id !== gameId);
     const updatedGroup = { ...currentGroup, games: updatedGames };
     updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+
     setCurrentGroup(updatedGroup);
     setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
     updateGroupInFirebase(updatedGroup);
   };
 
+  // -------------------------
+  // 画面切り替え
+  // -------------------------
   if (analysisMode) {
     return <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />;
   }
 
   if (!currentGroup) {
+    // トップページ
     return (
       <div className="container mx-auto max-w-4xl px-4 py-8">
         <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">麻雀スコア計算アプリ - トップページ</h1>
@@ -267,6 +318,9 @@ const Dashboard = () => {
     );
   }
 
+  // -------------------------
+  // ダッシュボード画面
+  // -------------------------
   return (
     <div className="container mx-auto max-w-5xl px-4 py-6">
       {/* ヘッダー部分 */}
@@ -414,6 +468,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
+                  {/* 各ゲーム行 */}
                   {currentGroup.games.map((game, idx) => (
                     <tr key={game.id} className="hover:bg-gray-50">
                       <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">
@@ -439,6 +494,7 @@ const Dashboard = () => {
                       </td>
                     </tr>
                   ))}
+                  
                   {/* チップ入力行 */}
                   <tr className="bg-gray-50">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップ</td>
@@ -447,29 +503,31 @@ const Dashboard = () => {
                         <input
                           type="number"
                           value={chipRow[r]}
-                          onChange={(e) =>
-                            setChipRow({ ...chipRow, [r]: e.target.value })
-                          }
+                          onChange={(e) => setChipRow({ ...chipRow, [r]: e.target.value })}
                           className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                         />
                       </td>
                     ))}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
+                  
                   {/* 半荘結果合計行 */}
                   <tr className="bg-gray-100">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">半荘結果合計</td>
                     {players.map((p, idx) => {
-                      const key = p.trim();
-                      const score = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+                      const name = p.trim();
+                      const totalScore = name && currentGroup.finalStats[name]
+                        ? currentGroup.finalStats[name].finalResult
+                        : 0;
                       return (
                         <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-700">
-                          {score.toLocaleString()}
+                          {totalScore.toLocaleString()}
                         </td>
                       );
                     })}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
+                  
                   {/* チップボーナス行 */}
                   <tr className="bg-indigo-50">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップボーナス</td>
@@ -477,6 +535,7 @@ const Dashboard = () => {
                       const rankKey = `rank${idx + 1}`;
                       const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
                       const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
+                      // ボーナス計算（正負は運用次第）
                       const bonus = - (distribution * (20 - chipInput)) / 100;
                       return (
                         <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-indigo-600">
@@ -486,17 +545,20 @@ const Dashboard = () => {
                     })}
                     <td className="whitespace-nowrap px-6 py-4"></td>
                   </tr>
-                  {/* 最終結果行：半荘結果合計とチップボーナスの合算 */}
+                  
+                  {/* 最終結果行：半荘結果合計 + チップボーナス */}
                   <tr className="bg-indigo-100">
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-bold text-gray-900">最終結果</td>
                     {players.map((p, idx) => {
-                      const key = p.trim();
-                      const finalResult = key && currentGroup.finalStats[key] ? currentGroup.finalStats[key].finalResult : 0;
+                      const name = p.trim();
+                      const finalScore = name && currentGroup.finalStats[name]
+                        ? currentGroup.finalStats[name].finalResult
+                        : 0;
                       const rankKey = `rank${idx + 1}`;
                       const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
                       const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
                       const bonus = - (distribution * (20 - chipInput)) / 100;
-                      const total = finalResult + bonus;
+                      const total = finalScore + bonus;
                       return (
                         <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-bold text-gray-900">
                           {total.toLocaleString()}
