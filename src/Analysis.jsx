@@ -1,3 +1,4 @@
+// src/Analysis.jsx
 import React, { useState, useMemo } from 'react';
 
 // "YYYY-MM-DD" 形式の文字列から年を抜き出す
@@ -7,6 +8,7 @@ function extractYear(dateStr) {
 }
 
 function Analysis({ groups, onClose }) {
+  // 1) すべての年を抽出
   const allYears = useMemo(() => {
     const years = new Set();
     groups.forEach(g => {
@@ -16,6 +18,7 @@ function Analysis({ groups, onClose }) {
     return Array.from(years).sort();
   }, [groups]);
 
+  // 2) すべてのプレイヤーを抽出
   const allPlayers = useMemo(() => {
     const playersSet = new Set();
     groups.forEach(g => {
@@ -29,6 +32,7 @@ function Analysis({ groups, onClose }) {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
+  // 3) フィルタリング
   const filteredGroups = useMemo(() => {
     return groups.filter(g => {
       const groupYear = extractYear(g.date || g.name);
@@ -38,26 +42,35 @@ function Analysis({ groups, onClose }) {
     });
   }, [groups, selectedYear, selectedPlayer]);
 
+  // 4) テーブル表示用データ
   const tableData = useMemo(() => {
     let rows = [];
     let totalFinal = 0;
     let totalChip = 0;
     let totalHalf = 0;
+
     filteredGroups.forEach(g => {
-      const stats = g.finalStats && selectedPlayer ? g.finalStats[selectedPlayer] : { finalResult: 0, chipBonus: 0, halfResult: 0 };
-      const finalResult = stats.finalResult;
-      const chipBonus = stats.chipBonus;
-      const halfResult = stats.halfResult;
+      // 該当プレイヤーの finalStats
+      const stats = g.finalStats && selectedPlayer
+        ? g.finalStats[selectedPlayer]
+        : { finalResult: 0, chipBonus: 0, halfResult: 0 };
+
+      const finalResult = stats.finalResult || 0;
+      const chipBonus = stats.chipBonus || 0;
+      const halfResult = stats.halfResult || 0;
+
       rows.push({
         groupLabel: g.date || g.name,
         finalResult,
         chipBonus,
         halfResult
       });
+
       totalFinal += finalResult;
       totalChip += chipBonus;
       totalHalf += halfResult;
     });
+
     return { rows, totalFinal, totalChip, totalHalf };
   }, [filteredGroups, selectedPlayer]);
 
@@ -68,7 +81,11 @@ function Analysis({ groups, onClose }) {
         className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 ease-in-out flex items-center"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+            clipRule="evenodd"
+          />
         </svg>
         トップページに戻る
       </button>
@@ -173,8 +190,19 @@ function Analysis({ groups, onClose }) {
         </div>
       ) : (
         <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-16 w-16 mx-auto text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <p className="mt-2 text-gray-700">該当データがありません。</p>
         </div>
