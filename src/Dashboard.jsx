@@ -90,7 +90,7 @@ function calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistrib
     const key = playerName.trim();
     // ベースの半荘結果合計
     const baseScore = key && currentGroup.finalStats[key]
-      ? currentGroup.finalStats[key].finalResult
+      ? currentGroup.finalStats[key].halfResult
       : 0;
     // キーは "rank1", "rank2", … として扱う
     const rankKey = `rank${i + 1}`;
