@@ -88,21 +88,18 @@ function calculateFinalOverallTotals(currentGroup, players, chipRow, chipDistrib
   if (!currentGroup || !currentGroup.finalStats) return players.map(() => 0);
   return players.map((playerName, i) => {
     const key = playerName.trim();
-    // ベースの半荘結果合計
+    // ここを halfResult ではなく finalResult に変更
     const baseScore = key && currentGroup.finalStats[key]
-      ? currentGroup.finalStats[key].halfResult
+      ? currentGroup.finalStats[key].finalResult
       : 0;
-    // キーは "rank1", "rank2", … として扱う
     const rankKey = `rank${i + 1}`;
-    // ユーザー入力されたチップ枚数。未入力の場合は20枚とみなす
     const chipInput = chipRow[rankKey] !== '' ? Number(chipRow[rankKey]) : 20;
-    // チップ配点。未入力の場合は0とする
     const distribution = chipDistribution !== '' ? Number(chipDistribution) : 0;
-    // チップボーナスは (chipInput - 20) * distribution / 100
     const bonus = ((chipInput - 20) * distribution) / 100;
     return baseScore + bonus;
   });
 }
+
 
 
 
