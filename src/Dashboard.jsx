@@ -116,30 +116,35 @@ const Dashboard = () => {
 
   // 🔹 過去のプレイヤー名を保存する state
   const [pastPlayerNames, setPastPlayerNames] = useState([]);
-
-  // 🔹 Firestore から「自分が過去に入力したプレイヤー名」だけ取得
-  useEffect(() => {
-    if (!user) return;
   
-    const fetchPlayerNames = async () => {
+// Dashboard.jsx ファイル内 - useEffect の追加
+
+// 🔹 Firestore からユーザーのグループデータを取得する useEffect
+useEffect(() => {
+  if (!user) return;
+
+  const fetchGroups = async () => {
+    try {
+      // ユーザーIDに基づいてグループを取得
       const q = query(collection(db, "groups"), where("userId", "==", user.uid));
       const querySnapshot = await getDocs(q);
-  
-      const allNames = new Set(); // 🔹 重複を防ぐ
+      
+      const groupsData = [];
       querySnapshot.forEach((doc) => {
-        const players = doc.data().players || [];
-        players.forEach(name => {
-          if (name.trim()) {
-            allNames.add(name.trim());
-          }
-        });
+        const data = doc.data();
+        // id が数値の場合は数値型に変換（Date.now() で作成された ID などの場合）
+        const id = isNaN(data.id) ? data.id : Number(data.id);
+        groupsData.push({ ...data, id });
       });
-  
-      setPastPlayerNames(Array.from(allNames)); // 🔹 State に保存
-    };
-  
-    fetchPlayerNames();
-  }, [user]);  // 🔹 user が変わったときに再取得  
+      
+      setGroups(groupsData);
+    } catch (error) {
+      console.error("グループデータ取得エラー:", error);
+    }
+  };
+
+  fetchGroups();
+}, [user]); // user が変わった時に再取得
 
 
   // ログアウト処理
@@ -197,21 +202,24 @@ const Dashboard = () => {
   };
 
   // 新規グループ作成
-  const createNewGroup = () => {
-    const newGroup = {
-      id: Date.now(),
-      name: "グループ名未設定",
-      date: "",
-      settings: { ...settings, chipDistribution },
-      players: ['', '', '', ''], // 🔹 新規グループでは空のプレイヤー名をセット
-      games: [],
-      finalStats: {},
-      chipRow: {} // チップ入力用オブジェクト
-    };
-    setGroups(prev => [...prev, newGroup]);
-    setCurrentGroup(newGroup);
-    saveGroupToFirebase(newGroup);
-  };  
+const createNewGroup = () => {
+  if (!user) return; // ユーザーがログインしていない場合は処理を行わない
+  
+  const newGroup = {
+    id: Date.now(),
+    userId: user.uid, // ユーザーIDを保存
+    name: "グループ名未設定",
+    date: "",
+    settings: { ...settings, chipDistribution },
+    players: ['', '', '', ''],
+    games: [],
+    finalStats: {},
+    chipRow: {}
+  };
+  setGroups(prev => [...prev, newGroup]);
+  setCurrentGroup(newGroup);
+  saveGroupToFirebase(newGroup);
+};
 
   // 半荘結果を追加
   const addGameScore = () => {
