@@ -1,6 +1,5 @@
-// src/Dashboard.jsx
-import React, { useState, useEffect } from 'react'; // 🔹 useEffect を追加
-import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore'; // 🔹 Firestore クエリを追加
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
@@ -87,6 +86,10 @@ function recalcFinalStats(group) {
     }
   });
 
+  // チップボーナスを計算する前にデバッグログを追加
+  console.log("recalcFinalStats: group.chipRow =", group.chipRow);
+  console.log("recalcFinalStats: group.settings =", group.settings);
+
   // チップボーナスを計算して加算
   const distribution = Number(group.settings?.chipDistribution ?? 0);
   group.players.forEach((p, index) => {
@@ -114,38 +117,110 @@ const Dashboard = () => {
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // 🔹 過去のプレイヤー名を保存する state
+  // ========== すべての State 宣言 ==========
+  const [groups, setGroups] = useState([]);
+  const [currentGroup, setCurrentGroup] = useState(null);
+  const [analysisMode, setAnalysisMode] = useState(false);
+  const [players, setPlayers] = useState(['', '', '', '']);
   const [pastPlayerNames, setPastPlayerNames] = useState([]);
+  const [currentGameScore, setCurrentGameScore] = useState({
+    rank1: '',
+    rank2: '',
+    rank3: '',
+    rank4: ''
+  });
+  const [basicDate, setBasicDate] = useState('');
+  const [chipDistribution, setChipDistribution] = useState('');
+  const [chipRow, setChipRow] = useState({
+    rank1: '',
+    rank2: '',
+    rank3: '',
+    rank4: ''
+  });
+
+  // ========== useEffect ==========
   
-// Dashboard.jsx ファイル内 - useEffect の追加
-
-// 🔹 Firestore からユーザーのグループデータを取得する useEffect
-useEffect(() => {
-  if (!user) return;
-
-  const fetchGroups = async () => {
-    try {
-      // ユーザーIDに基づいてグループを取得
-      const q = query(collection(db, "groups"), where("userId", "==", user.uid));
-      const querySnapshot = await getDocs(q);
+  // Firestore からユーザーのグループデータを取得する useEffect
+  useEffect(() => {
+    if (!user) return;
+  
+    const fetchGroups = async () => {
+      try {
+        // ユーザーIDに基づいてグループを取得
+        const q = query(collection(db, "groups"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        
+        const groupsData = [];
+        const allNames = new Set(); // プレイヤー名収集用
+  
+        querySnapshot.forEach((doc) => {
+          // ドキュメントIDを保持
+          const data = { ...doc.data(), docId: doc.id };
+          
+          // id が数値の場合は数値型に変換（Date.now() で作成された ID などの場合）
+          const id = isNaN(data.id) ? data.id : Number(data.id);
+          
+          // ゲームデータが配列であることを確認
+          if (!Array.isArray(data.games)) {
+            data.games = data.games || [];
+          }
+          
+          // 必須フィールドの初期化
+          data.players = data.players || ['', '', '', ''];
+          data.settings = data.settings || { ...settings };
+          data.chipRow = data.chipRow || {};
+          
+          // データを準備
+          const groupData = { ...data, id };
+          
+          // 最終状態を再計算
+          groupData.finalStats = recalcFinalStats(groupData);
+          
+          groupsData.push(groupData);
+          
+          // プレイヤー名も収集
+          const players = data.players || [];
+          players.forEach(name => {
+            if (name && name.trim()) {
+              allNames.add(name.trim());
+            }
+          });
+        });
+        
+        // コンソールに取得したデータを表示（デバッグ用）
+        console.log("取得したグループデータ:", groupsData);
+        
+        setGroups(groupsData);
+        setPastPlayerNames(Array.from(allNames)); // プレイヤー名をセット
+      } catch (error) {
+        console.error("グループデータ取得エラー:", error);
+      }
+    };
+  
+    fetchGroups();
+  }, [user]);
+  
+  // currentGroupが変更された時に関連ステートを同期するuseEffect
+  useEffect(() => {
+    if (currentGroup) {
+      // players ステートを同期
+      setPlayers(currentGroup.players || ['', '', '', '']);
       
-      const groupsData = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        // id が数値の場合は数値型に変換（Date.now() で作成された ID などの場合）
-        const id = isNaN(data.id) ? data.id : Number(data.id);
-        groupsData.push({ ...data, id });
+      // chipRow ステートを同期
+      setChipRow(currentGroup.chipRow || {
+        rank1: '',
+        rank2: '',
+        rank3: '',
+        rank4: ''
       });
       
-      setGroups(groupsData);
-    } catch (error) {
-      console.error("グループデータ取得エラー:", error);
+      // 基本情報を同期
+      setBasicDate(currentGroup.date || '');
+      setChipDistribution(currentGroup.settings?.chipDistribution || '');
     }
-  };
+  }, [currentGroup]);
 
-  fetchGroups();
-}, [user]); // user が変わった時に再取得
-
+  // ========== Functions ==========
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -157,30 +232,24 @@ useEffect(() => {
     }
   };
 
-  const [groups, setGroups] = useState([]);
-  const [currentGroup, setCurrentGroup] = useState(null);
-  const [analysisMode, setAnalysisMode] = useState(false);
-  const [players, setPlayers] = useState(['', '', '', '']);
-  const [currentGameScore, setCurrentGameScore] = useState({
-    rank1: '',
-    rank2: '',
-    rank3: '',
-    rank4: ''
-  });
-  const [basicDate, setBasicDate] = useState('');
-  const [chipDistribution, setChipDistribution] = useState('');
-  // ローカルで保持するチップ入力
-  const [chipRow, setChipRow] = useState({
-    rank1: '',
-    rank2: '',
-    rank3: '',
-    rank4: ''
-  });
-
   // Firestore へのデータ保存関連
   const saveGroupToFirebase = async (groupData) => {
     try {
-      const docRef = await addDoc(collection(db, "groups"), groupData);
+      const docRef = await addDoc(collection(db, "groups"), {
+        ...groupData,
+        userId: user.uid, // ユーザーIDを確実に保存
+        createdAt: new Date().toISOString() // 作成日時も記録
+      });
+      
+      // docIdを保持するために、作成したグループに追加
+      const updatedGroupData = { ...groupData, docId: docRef.id };
+      
+      // ステートを更新
+      setGroups(prev => prev.map(g => g.id === groupData.id ? updatedGroupData : g));
+      if (currentGroup && currentGroup.id === groupData.id) {
+        setCurrentGroup(updatedGroupData);
+      }
+      
       console.log("グループ保存, id=", docRef.id);
     } catch (error) {
       console.error("グループ保存エラー:", error);
@@ -189,8 +258,14 @@ useEffect(() => {
 
   async function updateGroupInFirebase(groupData) {
     try {
-      const docRef = doc(collection(db, "groups"), String(groupData.id));
-      await updateDoc(docRef, groupData);
+      // docIdが存在する場合はそれを使用、それ以外はidをstring化して使用
+      const docId = groupData.docId || String(groupData.id);
+      const docRef = doc(db, "groups", docId);
+      
+      // docIdはFirestoreのフィールドとしては保存しない
+      const { docId: _, ...dataToSave } = groupData;
+      
+      await updateDoc(docRef, dataToSave);
       console.log("グループ更新:", groupData.id);
     } catch (error) {
       console.error("グループ更新エラー:", error);
@@ -202,86 +277,87 @@ useEffect(() => {
   };
 
   // 新規グループ作成
-const createNewGroup = () => {
-  if (!user) return; // ユーザーがログインしていない場合は処理を行わない
-  
-  const newGroup = {
-    id: Date.now(),
-    userId: user.uid, // ユーザーIDを保存
-    name: "グループ名未設定",
-    date: "",
-    settings: { ...settings, chipDistribution },
-    players: ['', '', '', ''],
-    games: [],
-    finalStats: {},
-    chipRow: {}
+  const createNewGroup = () => {
+    if (!user) return; // ユーザーがログインしていない場合は処理を行わない
+    
+    const newGroup = {
+      id: Date.now(),
+      userId: user.uid, // ユーザーIDを保存
+      name: "グループ名未設定",
+      date: "",
+      settings: { ...settings, chipDistribution },
+      players: ['', '', '', ''],
+      games: [],
+      finalStats: {},
+      chipRow: {},
+      rankingCounts: {} // 順位集計も初期化
+    };
+    setGroups(prev => [...prev, newGroup]);
+    setCurrentGroup(newGroup);
+    saveGroupToFirebase(newGroup);
   };
-  setGroups(prev => [...prev, newGroup]);
-  setCurrentGroup(newGroup);
-  saveGroupToFirebase(newGroup);
-};
 
   // 半荘結果を追加
   const addGameScore = () => {
-  const { rank1, rank2, rank3, rank4 } = currentGameScore;
-  if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
-
-  // 持ち点から最終スコアを計算
-  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
-  const finalScores = {
-    rank1: finalScoresObj[0],
-    rank2: finalScoresObj[1],
-    rank3: finalScoresObj[2],
-    rank4: finalScoresObj[3]
+    const { rank1, rank2, rank3, rank4 } = currentGameScore;
+    if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
+  
+    // 持ち点から最終スコアを計算
+    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+    const finalScores = {
+      rank1: finalScoresObj[0],
+      rank2: finalScoresObj[1],
+      rank3: finalScoresObj[2],
+      rank4: finalScoresObj[3]
+    };
+  
+    const newGame = {
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      inputScores: {
+        rank1: Number(rank1),
+        rank2: Number(rank2),
+        rank3: Number(rank3),
+        rank4: Number(rank4)
+      },
+      finalScores
+    };
+  
+    // 🔹 順位回数を更新する処理をここで追加
+    const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
+  
+    const sortedPlayers = Object.keys(finalScores)
+      .map((key, index) => ({
+        player: players[index],
+        score: finalScores[key]
+      }))
+      .sort((a, b) => b.score - a.score);
+  
+    sortedPlayers.forEach((player, index) => {
+      if (!updatedRankingCounts[player.player]) {
+        updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+      }
+      updatedRankingCounts[player.player][`${index + 1}位`] += 1;
+    });
+  
+    // グループ更新
+    const updatedGroup = {
+      ...currentGroup,
+      games: [...currentGroup.games, newGame],
+      rankingCounts: updatedRankingCounts
+    };
+  
+    // 再集計
+    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+  
+    // state & Firestore に反映
+    setCurrentGroup(updatedGroup);
+    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+    saveGameResultToFirebase(updatedGroup);
+  
+    // 入力欄クリア
+    setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   };
-
-  const newGame = {
-    id: Date.now(),
-    createdAt: new Date().toISOString(),
-    inputScores: {
-      rank1: Number(rank1),
-      rank2: Number(rank2),
-      rank3: Number(rank3),
-      rank4: Number(rank4)
-    },
-    finalScores
-  };
-
-  // 🔹 順位回数を更新する処理をここで追加
-  const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
-
-  const sortedPlayers = Object.keys(finalScores)
-    .map((key, index) => ({
-      player: players[index],
-      score: finalScores[key]
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  sortedPlayers.forEach((player, index) => {
-    if (!updatedRankingCounts[player.player]) {
-      updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
-    }
-    updatedRankingCounts[player.player][`${index + 1}位`] += 1;
-  });
-
-  // グループ更新
-  const updatedGroup = {
-    ...currentGroup,
-    games: [...currentGroup.games, newGame],
-    rankingCounts: updatedRankingCounts
-  };
-
-  // 再集計
-  updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-
-  // state & Firestore に反映
-  setCurrentGroup(updatedGroup);
-  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-  saveGameResultToFirebase(updatedGroup);
-
-  // 入力欄クリア
-  setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
-};
 
   // ゲーム結果をテーブル上で編集（最終スコアを変更）
   const handleEditGameScore = (gameId, rankKey, newValue) => {
@@ -367,7 +443,20 @@ const createNewGroup = () => {
               {groups.map(g => (
                 <li key={g.id}>
                   <button 
-                    onClick={() => setCurrentGroup(g)}
+                    onClick={() => {
+                      const updatedGroup = { ...g };
+                      updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+                      setCurrentGroup(updatedGroup);
+                      setPlayers(updatedGroup.players || ['', '', '', '']);
+                      setChipRow(updatedGroup.chipRow || {
+                        rank1: '',
+                        rank2: '',
+                        rank3: '',
+                        rank4: ''
+                      });
+                      setBasicDate(updatedGroup.date || '');
+                      setChipDistribution(updatedGroup.settings?.chipDistribution || '');
+                    }}
                     className="w-full rounded-md bg-gray-100 px-4 py-2 text-left text-base font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     {g.name}
@@ -437,37 +526,35 @@ const createNewGroup = () => {
           </div>
           
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-  {players.map((p, index) => (
-    <div key={index}>
-      <label className="block text-sm font-medium text-gray-700">
-        プレイヤー{index + 1}
-        {/* 🔹 `datalist` を追加し、過去のプレイヤー名を候補に */}
-        <input
-          type="text"
-          value={players[index]}
-          onChange={(e) => {
-            const newPlayers = [...players];
-            newPlayers[index] = e.target.value;
-            setPlayers(newPlayers);
-            const updatedGroup = { ...currentGroup, players: newPlayers };
-            setCurrentGroup(updatedGroup);
-            setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-            updateGroupInFirebase(updatedGroup);
-          }}
-          list={`pastPlayerNames-${index}`}  // 🔹 過去のプレイヤー名候補を使用
-          placeholder="名前を入力"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-        />
-        {/* 🔹 過去のプレイヤー名を選択肢に */}
-        <datalist id={`pastPlayerNames-${index}`}>
-          {pastPlayerNames.map((name, i) => (
-            <option key={i} value={name} />
-          ))}
-        </datalist>
-      </label>
-    </div>
-  ))}
-</div>
+            {players.map((p, index) => (
+              <div key={index}>
+                <label className="block text-sm font-medium text-gray-700">
+                  プレイヤー{index + 1}
+                  <input
+                    type="text"
+                    value={players[index]}
+                    onChange={(e) => {
+                      const newPlayers = [...players];
+                      newPlayers[index] = e.target.value;
+                      setPlayers(newPlayers);
+                      const updatedGroup = { ...currentGroup, players: newPlayers };
+                      setCurrentGroup(updatedGroup);
+                      setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+                      updateGroupInFirebase(updatedGroup);
+                    }}
+                    list={`pastPlayerNames-${index}`}
+                    placeholder="名前を入力"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  />
+                  <datalist id={`pastPlayerNames-${index}`}>
+                    {pastPlayerNames.map((name, i) => (
+                      <option key={i} value={name} />
+                    ))}
+                  </datalist>
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
         
         {/* 半荘設定セクション */}
