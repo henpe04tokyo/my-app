@@ -1,6 +1,6 @@
 // src/Dashboard.jsx
-import React, { useState } from 'react';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react'; // 🔹 useEffect を追加
+import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore'; // 🔹 Firestore クエリを追加
 import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
@@ -112,6 +112,35 @@ function recalcFinalStats(group) {
 const Dashboard = () => {
   const navigate = useNavigate();
   const auth = getAuth();
+  const user = auth.currentUser;
+
+  // 🔹 過去のプレイヤー名を保存する state
+  const [pastPlayerNames, setPastPlayerNames] = useState([]);
+
+  // 🔹 Firestore から「自分が過去に入力したプレイヤー名」だけ取得
+  useEffect(() => {
+    if (!user) return;
+  
+    const fetchPlayerNames = async () => {
+      const q = query(collection(db, "groups"), where("userId", "==", user.uid));
+      const querySnapshot = await getDocs(q);
+  
+      const allNames = new Set(); // 🔹 重複を防ぐ
+      querySnapshot.forEach((doc) => {
+        const players = doc.data().players || [];
+        players.forEach(name => {
+          if (name.trim()) {
+            allNames.add(name.trim());
+          }
+        });
+      });
+  
+      setPastPlayerNames(Array.from(allNames)); // 🔹 State に保存
+    };
+  
+    fetchPlayerNames();
+  }, [user]);  // 🔹 user が変わったときに再取得  
+
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -174,7 +203,7 @@ const Dashboard = () => {
       name: "グループ名未設定",
       date: "",
       settings: { ...settings, chipDistribution },
-      players: [...players],
+      players: ['', '', '', ''], // 🔹 新規グループでは空のプレイヤー名をセット
       games: [],
       finalStats: {},
       chipRow: {} // チップ入力用オブジェクト
@@ -182,50 +211,69 @@ const Dashboard = () => {
     setGroups(prev => [...prev, newGroup]);
     setCurrentGroup(newGroup);
     saveGroupToFirebase(newGroup);
-  };
+  };  
 
   // 半荘結果を追加
   const addGameScore = () => {
-    const { rank1, rank2, rank3, rank4 } = currentGameScore;
-    if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
+  const { rank1, rank2, rank3, rank4 } = currentGameScore;
+  if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
 
-    // 持ち点から最終スコアを計算
-    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
-    const finalScores = {
-      rank1: finalScoresObj[0],
-      rank2: finalScoresObj[1],
-      rank3: finalScoresObj[2],
-      rank4: finalScoresObj[3]
-    };
-
-    const newGame = {
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      inputScores: {
-        rank1: Number(rank1),
-        rank2: Number(rank2),
-        rank3: Number(rank3),
-        rank4: Number(rank4)
-      },
-      finalScores
-    };
-
-    // グループ更新
-    const updatedGroup = {
-      ...currentGroup,
-      games: [...currentGroup.games, newGame]
-    };
-    // 再集計
-    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-
-    // state & Firestore に反映
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-    saveGameResultToFirebase(updatedGroup);
-
-    // 入力欄クリア
-    setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+  // 持ち点から最終スコアを計算
+  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+  const finalScores = {
+    rank1: finalScoresObj[0],
+    rank2: finalScoresObj[1],
+    rank3: finalScoresObj[2],
+    rank4: finalScoresObj[3]
   };
+
+  const newGame = {
+    id: Date.now(),
+    createdAt: new Date().toISOString(),
+    inputScores: {
+      rank1: Number(rank1),
+      rank2: Number(rank2),
+      rank3: Number(rank3),
+      rank4: Number(rank4)
+    },
+    finalScores
+  };
+
+  // 🔹 順位回数を更新する処理をここで追加
+  const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
+
+  const sortedPlayers = Object.keys(finalScores)
+    .map((key, index) => ({
+      player: players[index],
+      score: finalScores[key]
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  sortedPlayers.forEach((player, index) => {
+    if (!updatedRankingCounts[player.player]) {
+      updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+    }
+    updatedRankingCounts[player.player][`${index + 1}位`] += 1;
+  });
+
+  // グループ更新
+  const updatedGroup = {
+    ...currentGroup,
+    games: [...currentGroup.games, newGame],
+    rankingCounts: updatedRankingCounts
+  };
+
+  // 再集計
+  updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+
+  // state & Firestore に反映
+  setCurrentGroup(updatedGroup);
+  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+  saveGameResultToFirebase(updatedGroup);
+
+  // 入力欄クリア
+  setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+};
 
   // ゲーム結果をテーブル上で編集（最終スコアを変更）
   const handleEditGameScore = (gameId, rankKey, newValue) => {
@@ -381,29 +429,37 @@ const Dashboard = () => {
           </div>
           
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {players.map((p, index) => (
-              <div key={index}>
-                <label className="block text-sm font-medium text-gray-700">
-                  プレイヤー{index + 1}
-                  <input
-                    type="text"
-                    value={players[index]}
-                    onChange={(e) => {
-                      const newPlayers = [...players];
-                      newPlayers[index] = e.target.value;
-                      setPlayers(newPlayers);
-                      const updatedGroup = { ...currentGroup, players: newPlayers };
-                      setCurrentGroup(updatedGroup);
-                      setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-                      updateGroupInFirebase(updatedGroup);
-                    }}
-                    placeholder="名前を入力"
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                  />
-                </label>
-              </div>
-            ))}
-          </div>
+  {players.map((p, index) => (
+    <div key={index}>
+      <label className="block text-sm font-medium text-gray-700">
+        プレイヤー{index + 1}
+        {/* 🔹 `datalist` を追加し、過去のプレイヤー名を候補に */}
+        <input
+          type="text"
+          value={players[index]}
+          onChange={(e) => {
+            const newPlayers = [...players];
+            newPlayers[index] = e.target.value;
+            setPlayers(newPlayers);
+            const updatedGroup = { ...currentGroup, players: newPlayers };
+            setCurrentGroup(updatedGroup);
+            setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+            updateGroupInFirebase(updatedGroup);
+          }}
+          list={`pastPlayerNames-${index}`}  // 🔹 過去のプレイヤー名候補を使用
+          placeholder="名前を入力"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+        />
+        {/* 🔹 過去のプレイヤー名を選択肢に */}
+        <datalist id={`pastPlayerNames-${index}`}>
+          {pastPlayerNames.map((name, i) => (
+            <option key={i} value={name} />
+          ))}
+        </datalist>
+      </label>
+    </div>
+  ))}
+</div>
         </div>
         
         {/* 半荘設定セクション */}
@@ -586,6 +642,38 @@ const Dashboard = () => {
               まだ半荘結果がありません。
             </div>
           )}
+         {/* 順位集計表 */}
+<h3 className="mt-8 text-lg font-semibold text-gray-800 border-b pb-2">順位</h3>
+<div className="rounded-lg bg-white p-6 shadow-md">
+  <table className="min-w-full divide-y divide-gray-200">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+          順位
+        </th>
+        {currentGroup?.players?.map((player, idx) => (
+          <th key={idx} className="ppx-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            {player || `プレイヤー${idx + 1}`}
+          </th>
+        ))}
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-200 bg-white">
+      {["1位", "2位", "3位", "4位"].map(rank => (
+        <tr key={rank} className="even:bg-gray-50 hover:bg-gray-100">
+          <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">
+            {rank}
+          </td>
+          {currentGroup?.players?.map((player, idx) => (
+            <td key={idx} className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">
+              {currentGroup?.rankingCounts?.[player]?.[rank] || 0}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
         </div>
       </div>
     </div>
