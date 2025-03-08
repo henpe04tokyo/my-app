@@ -191,7 +191,7 @@ const Dashboard = () => {
       console.error("グループ更新エラー:", error);
     }
   }
-
+  
   const saveGameResultToFirebase = async (updatedGroup) => {
     await updateGroupInFirebase(updatedGroup);
   };
