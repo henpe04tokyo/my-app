@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
-import { getAuth, signOut } from 'firebase/auth';
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
 import Analysis from './Analysis';
@@ -13,7 +13,8 @@ import ChipSettings from './components/Dashboard/ChipSettings';
 const Dashboard = () => {
   const navigate = useNavigate();
   const auth = getAuth();
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // ========== すべての State 宣言 ==========
   const [groups, setGroups] = useState([]);
@@ -38,6 +39,21 @@ const Dashboard = () => {
 
  // ========== useEffect ==========
   
+  // 認証状態監視の useEffect
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        // ユーザーがログインしていない場合はログインページにリダイレクト
+        navigate('/login');
+      }
+      setLoading(false);
+    });
+    
+    // クリーンアップ関数
+    return () => unsubscribe();
+  }, [auth, navigate]);
+  
   // Firestore からユーザーのグループデータを取得する useEffect
   useEffect(() => {
     if (!user) return;
@@ -47,6 +63,13 @@ const Dashboard = () => {
         // ユーザーIDに基づいてグループを取得
         const q = query(collection(db, "groups"), where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          console.log("グループデータが見つかりません");
+          setGroups([]);
+          setLoading(false);
+          return;
+        }
         
         const groupsData = [];
         const allNames = new Set(); // プレイヤー名収集用
@@ -92,6 +115,8 @@ const Dashboard = () => {
         setPastPlayerNames(Array.from(allNames)); // プレイヤー名をセット
       } catch (error) {
         console.error("グループデータ取得エラー:", error);
+      } finally {
+        setLoading(false);
       }
     };
   
@@ -132,6 +157,8 @@ const Dashboard = () => {
 
   // Firestore へのデータ保存関連
   const saveGroupToFirebase = async (groupData) => {
+    if (!user) return;
+    
     try {
       const docRef = await addDoc(collection(db, "groups"), {
         ...groupData,
@@ -149,12 +176,16 @@ const Dashboard = () => {
       }
       
       console.log("グループ保存, id=", docRef.id);
+      return docRef.id;
     } catch (error) {
       console.error("グループ保存エラー:", error);
+      return null;
     }
   };
 
   async function updateGroupInFirebase(groupData) {
+    if (!user) return;
+    
     try {
       // docIdが存在する場合はそれを使用、それ以外はidをstring化して使用
       const docId = groupData.docId || String(groupData.id);
@@ -165,13 +196,15 @@ const Dashboard = () => {
       
       await updateDoc(docRef, dataToSave);
       console.log("グループ更新:", groupData.id);
+      return true;
     } catch (error) {
       console.error("グループ更新エラー:", error);
+      return false;
     }
   }
   
   const saveGameResultToFirebase = async (updatedGroup) => {
-    await updateGroupInFirebase(updatedGroup);
+    return await updateGroupInFirebase(updatedGroup);
   };
 
   // 新規グループ作成
@@ -315,6 +348,32 @@ const Dashboard = () => {
     updateGroupInFirebase(updatedGroup);
   };
 
+  // ローディング中の表示
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-xl font-semibold text-gray-700">読み込み中...</div>
+      </div>
+    );
+  }
+
+  // ユーザーが認証されていない場合
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-xl font-semibold text-gray-700">ログインが必要です</div>
+          <button 
+            onClick={() => navigate('/login')}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-base font-medium text-white transition duration-150 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            ログインページへ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (analysisMode) {
     return <Analysis groups={groups} onClose={() => setAnalysisMode(false)} />;
   }
@@ -357,7 +416,7 @@ const Dashboard = () => {
                     }}
                     className="w-full rounded-md bg-gray-100 px-4 py-2 text-left text-base font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
-                    {g.name}
+                    {g.name || "名称未設定グループ"}
                   </button>
                 </li>
               ))}
@@ -398,7 +457,7 @@ const Dashboard = () => {
         >
           トップページに戻る
         </button>
-        <h2 className="text-xl font-bold text-indigo-600">{currentGroup.name}</h2>
+        <h2 className="text-xl font-bold text-indigo-600">{currentGroup.name || "名称未設定グループ"}</h2>
       </div>
       
       <div className="space-y-6">
