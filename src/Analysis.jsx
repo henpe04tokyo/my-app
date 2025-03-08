@@ -7,7 +7,7 @@ function extractYear(dateStr) {
   return dateStr.slice(0, 4);
 }
 
-function Analysis({ groups, onClose }) {
+const Analysis = ({ groups, onClose }) => {
   // 1) すべての年を抽出
   const allYears = useMemo(() => {
     const years = new Set();

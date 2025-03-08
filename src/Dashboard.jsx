@@ -9,7 +9,12 @@ import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
 import PlayerSettings from './components/Dashboard/PlayerSettings';
 import ChipSettings from './components/Dashboard/ChipSettings';
-
+// インポート文の下に追加
+console.log("Analysis:", Analysis);
+console.log("GameInputForm:", GameInputForm);
+console.log("GameResultsTable:", GameResultsTable);
+console.log("PlayerSettings:", PlayerSettings);
+console.log("ChipSettings:", ChipSettings);
 const Dashboard = () => {
   const navigate = useNavigate();
   const auth = getAuth();
@@ -461,49 +466,45 @@ const Dashboard = () => {
       </div>
       
       <div className="space-y-6">
-        {/* 基本情報セクション */}
-        <PlayerSettings 
-          basicDate={basicDate}
-          setBasicDate={setBasicDate}
-          players={players}
-          setPlayers={setPlayers}
-          pastPlayerNames={pastPlayerNames}
-          currentGroup={currentGroup}
-          setCurrentGroup={setCurrentGroup}
-          groups={groups}
-          setGroups={setGroups}
-          updateGroupInFirebase={updateGroupInFirebase}
-        />
-        
-        {/* 半荘設定セクション */}
-        <ChipSettings 
-          chipDistribution={chipDistribution}
-          setChipDistribution={setChipDistribution}
-          currentGroup={currentGroup}
-          setCurrentGroup={setCurrentGroup}
-          groups={groups}
-          setGroups={setGroups}
-          updateGroupInFirebase={updateGroupInFirebase}
-        />
-        
-        {/* 半荘結果入力フォーム */}
-        <GameInputForm 
-          players={players}
-          currentGameScore={currentGameScore}
-          setCurrentGameScore={setCurrentGameScore}
-          addGameScore={addGameScore}
-        />
-        
-        {/* ゲーム結果履歴テーブル */}
-        <GameResultsTable 
-          currentGroup={currentGroup}
-          players={players}
-          chipRow={chipRow}
-          handleEditGameScore={handleEditGameScore}
-          handleDeleteGame={handleDeleteGame}
-          handleChipChange={handleChipChange}
-        />
-      </div>
+  <PlayerSettings 
+    basicDate={basicDate}
+    setBasicDate={setBasicDate}
+    players={players}
+    setPlayers={setPlayers}
+    pastPlayerNames={pastPlayerNames}
+    currentGroup={currentGroup}
+    setCurrentGroup={setCurrentGroup}
+    groups={groups}
+    setGroups={setGroups}
+    updateGroupInFirebase={updateGroupInFirebase}
+  />
+  
+  <ChipSettings 
+    chipDistribution={chipDistribution}
+    setChipDistribution={setChipDistribution}
+    currentGroup={currentGroup}
+    setCurrentGroup={setCurrentGroup}
+    groups={groups}
+    setGroups={setGroups}
+    updateGroupInFirebase={updateGroupInFirebase}
+  />
+  
+  <GameInputForm 
+    players={players}
+    currentGameScore={currentGameScore}
+    setCurrentGameScore={setCurrentGameScore}
+    addGameScore={addGameScore}
+  />
+  
+  <GameResultsTable 
+    currentGroup={currentGroup}
+    players={players}
+    chipRow={chipRow}
+    handleEditGameScore={handleEditGameScore}
+    handleDeleteGame={handleDeleteGame}
+    handleChipChange={handleChipChange}
+  />
+</div>
     </div>
   );
 };
