@@ -5,19 +5,6 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './AuthContext';
 
-// Service Worker登録を無効化（問題解決後に再度有効化できます）
-// if ('serviceWorker' in navigator) {
-//   window.addEventListener('load', () => {
-//     navigator.serviceWorker.register('/serviceWorker.js')
-//       .then((registration) => {
-//         console.log('Service Worker registered with scope:', registration.scope);
-//       })
-//       .catch((error) => {
-//         console.error('Service Worker registration failed:', error);
-//       });
-//   });
-// }
-
 try {
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(
@@ -27,19 +14,6 @@ try {
       </AuthProvider>
     </React.StrictMode>
   );
-  
-  // サービスワーカーの登録を相対パスに変更して再有効化
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./serviceWorker.js')
-        .then((registration) => {
-          console.log('Service Worker registered with scope:', registration.scope);
-        })
-        .catch((error) => {
-          console.error('Service Worker registration failed:', error);
-        });
-    });
-  }
 } catch (error) {
   console.error("アプリケーション起動エラー:", error);
   // エラーメッセージを表示

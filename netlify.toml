@@ -4,6 +4,16 @@
   status = 200
   force = true
 
+[[headers]]
+  for = "/*.js"
+    [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*.css"
+    [headers.values]
+    Content-Type = "text/css"
+
 [build]
   publish = "build"
   command = "npm run build"
