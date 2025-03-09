@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 
 function Home() {
@@ -9,6 +9,7 @@ function Home() {
   const [groupName, setGroupName] = useState('');
   const [groups, setGroups] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null); // 削除確認用のステート
 
   // 🔹 ユーザー認証を監視
   useEffect(() => {
@@ -66,24 +67,53 @@ function Home() {
     }
   };
 
-  // 🔹 グループ削除処理
-  const handleDeleteGroup = async (groupId) => {
-    if (!window.confirm("このグループを削除してもよろしいですか？")) return;
+  // 🔹 削除確認ダイアログを表示
+  const showDeleteConfirm = (groupId) => {
+    setDeleteConfirmId(groupId);
+  };
 
+  // 🔹 削除キャンセル
+  const cancelDelete = () => {
+    setDeleteConfirmId(null);
+  };
+
+  // 🔹 グループ削除処理
+  const confirmDeleteGroup = async (groupId) => {
     try {
       await deleteDoc(doc(db, "groups", groupId));
       setGroups(prevGroups => prevGroups.filter(group => group.id !== groupId)); // 🔹 ローカル state を更新
       console.log(`グループ削除: ${groupId}`);
+      setDeleteConfirmId(null); // 確認ダイアログを閉じる
     } catch (error) {
       console.error("グループ削除エラー:", error);
     }
   };
 
+  // 🔹 ログアウト処理
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error("ログアウトエラー:", error);
+    }
+  };
+
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">
-        麻雀スコア計算アプリ - トップページ
-      </h1>
+      {/* ヘッダー部分にログアウトボタンを追加 */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">
+          麻雀スコア計算
+        </h1>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+        >
+          ログアウト
+        </button>
+      </div>
 
       {/* 新しいグループ作成 */}
       <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
@@ -118,13 +148,32 @@ function Home() {
                 >
                   {g.name}
                 </button>
-                {/* 🔹 削除ボタン */}
-                <button
-                  onClick={() => handleDeleteGroup(g.id)}
-                  className="ml-4 px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                >
-                  削除
-                </button>
+                
+                {/* 削除ボタンと確認ダイアログ */}
+                {deleteConfirmId === g.id ? (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">本当に削除しますか？</span>
+                    <button
+                      onClick={() => confirmDeleteGroup(g.id)}
+                      className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                    >
+                      OK
+                    </button>
+                    <button
+                      onClick={cancelDelete}
+                      className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => showDeleteConfirm(g.id)}
+                    className="ml-4 px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                  >
+                    削除
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -133,7 +182,7 @@ function Home() {
 
       {/* データ分析 */}
       <div className="rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800">データ分析</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-800">集計・分析</h2>
         <button className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700">
           集計
         </button>
