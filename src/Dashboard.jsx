@@ -63,6 +63,7 @@ const GroupDetail = ({
   players, setPlayers, pastPlayerNames,
   basicDate, setBasicDate,
   chipDistribution, setChipDistribution,
+  rankPointOption, setRankPointOption,  // この2行を追加
   currentGameScore, setCurrentGameScore,
   chipRow, setChipRow,
   updateGroupInFirebase, navigate
@@ -73,8 +74,11 @@ const GroupDetail = ({
     const { rank1, rank2, rank3, rank4 } = currentGameScore;
     if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
   
+     // グループに設定された順位点を取得（デフォルトは10-30）
+     const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
+     
     // 持ち点から最終スコアを計算
-    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
     const finalScores = {
       rank1: finalScoresObj[0],
       rank2: finalScoresObj[1],
@@ -230,6 +234,8 @@ const GroupDetail = ({
         <ChipSettings 
           chipDistribution={chipDistribution}
           setChipDistribution={setChipDistribution}
+          rankPointOption={rankPointOption}
+          setRankPointOption={setRankPointOption}
           currentGroup={currentGroup}
           setCurrentGroup={setCurrentGroup}
           groups={groups}
@@ -279,6 +285,7 @@ const Dashboard = () => {
   });
   const [basicDate, setBasicDate] = useState('');
   const [chipDistribution, setChipDistribution] = useState('');
+  const [rankPointOption, setRankPointOption] = useState('10-30');
   const [chipRow, setChipRow] = useState({
     rank1: '',
     rank2: '',
@@ -365,6 +372,7 @@ const Dashboard = () => {
             });
             setBasicDate(foundGroup.date || '');
             setChipDistribution(foundGroup.settings?.chipDistribution || '');
+            setRankPointOption(foundGroup.settings?.rankPointOption || '10-30');
           }
         }
       } catch (error) {
@@ -443,7 +451,8 @@ const Dashboard = () => {
       userId: user.uid,
       name: "グループ名未設定",
       date: "",
-      settings: { ...settings, chipDistribution },
+      settings: { ...settings, chipDistribution,rankPointOption: rankPointOption,
+        rankPoints: getRankPointsFromOption(rankPointOption) },
       players: ['', '', '', ''],
       games: [],
       finalStats: {},
@@ -460,6 +469,17 @@ const Dashboard = () => {
     });
   };
 
+// オプション文字列から順位点配列を取得するヘルパー関数
+const getRankPointsFromOption = (option) => {
+  switch (option) {
+    case '5-10': return [0, 5, -5, -10];
+    case '5-15': return [0, 5, -5, -15];
+    case '10-20': return [0, 10, -10, -20];
+    case '20-30': return [0, 20, -20, -30];
+    case '10-30':
+    default: return [0, 10, -10, -30];
+  }
+};
   // ローディング中の表示
   if (loading) {
     return (
@@ -523,6 +543,8 @@ const Dashboard = () => {
           setBasicDate={setBasicDate}
           chipDistribution={chipDistribution}
           setChipDistribution={setChipDistribution}
+          rankPointOption={rankPointOption}       // この行を追加
+          setRankPointOption={setRankPointOption} // この行を追加
           currentGameScore={currentGameScore}
           setCurrentGameScore={setCurrentGameScore}
           chipRow={chipRow}
