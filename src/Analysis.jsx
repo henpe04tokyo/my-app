@@ -134,6 +134,68 @@ const Analysis = ({ groups, onClose }) => {
         </div>
       </div>
       
+      {/* プレイヤーごとの順位統計テーブル */}
+      {selectedPlayer && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">プレイヤー順位統計</h2>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                    順位
+                  </th>
+                  <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                    回数
+                  </th>
+                  <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    割合
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {["1位", "2位", "3位", "4位"].map((rank, idx) => {
+                  // 該当プレイヤーの順位回数を集計
+                  let count = 0;
+                  filteredGroups.forEach(g => {
+                    if (g.rankingCounts && g.rankingCounts[selectedPlayer] && g.rankingCounts[selectedPlayer][rank]) {
+                      count += g.rankingCounts[selectedPlayer][rank];
+                    }
+                  });
+                  
+                  // 総ゲーム数を計算（各順位の合計）
+                  let totalGames = 0;
+                  ["1位", "2位", "3位", "4位"].forEach(r => {
+                    filteredGroups.forEach(g => {
+                      if (g.rankingCounts && g.rankingCounts[selectedPlayer] && g.rankingCounts[selectedPlayer][r]) {
+                        totalGames += g.rankingCounts[selectedPlayer][r];
+                      }
+                    });
+                  });
+                  
+                  // パーセント計算（小数点第1位まで）
+                  const percentage = totalGames > 0 ? (count / totalGames * 100).toFixed(1) : "0.0";
+                  
+                  return (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border-r">
+                        {rank}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right border-r">
+                        {count}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {percentage}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
       {tableData.rows.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
@@ -154,6 +216,23 @@ const Analysis = ({ groups, onClose }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {/* 合計行を最初に表示 */}
+              <tr className="bg-indigo-50 font-semibold">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 text-center">
+                  合計
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                  {tableData.totalFinal.toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
+                  {tableData.totalChip.toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                  {tableData.totalHalf.toLocaleString()}
+                </td>
+              </tr>
+              
+              {/* 各グループの行 */}
               {tableData.rows.map((row, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
@@ -170,21 +249,6 @@ const Analysis = ({ groups, onClose }) => {
                   </td>
                 </tr>
               ))}
-              
-              <tr className="bg-indigo-50 font-semibold">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 text-center">
-                  合計
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
-                  {tableData.totalFinal.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right border-r border-gray-100">
-                  {tableData.totalChip.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                  {tableData.totalHalf.toLocaleString()}
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>

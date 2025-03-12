@@ -148,32 +148,7 @@ function Home() {
                 >
                   {g.name}
                 </button>
-                
-                {/* 削除ボタンと確認ダイアログ */}
-                {deleteConfirmId === g.id ? (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">本当に削除しますか？</span>
-                    <button
-                      onClick={() => confirmDeleteGroup(g.id)}
-                      className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                    >
-                      OK
-                    </button>
-                    <button
-                      onClick={cancelDelete}
-                      className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => showDeleteConfirm(g.id)}
-                    className="ml-4 px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                  >
-                    削除
-                  </button>
-                )}
+              
               </li>
             ))}
           </ul>

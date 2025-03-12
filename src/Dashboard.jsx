@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
@@ -11,9 +11,9 @@ import PlayerSettings from './components/Dashboard/PlayerSettings';
 import ChipSettings from './components/Dashboard/ChipSettings';
 
 // グループリスト表示コンポーネント
-const GroupList = ({ groups, navigate }) => {
+const GroupList = ({ groups, navigate, deleteConfirmId, showDeleteConfirm, cancelDelete, confirmDeleteGroup }) => {
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
+    <div className="container mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">麻雀スコア計算アプリ - トップページ</h1>
       
       <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
@@ -31,13 +31,40 @@ const GroupList = ({ groups, navigate }) => {
           <h2 className="mb-4 text-xl font-semibold text-gray-800">既存グループ一覧</h2>
           <ul className="space-y-2">
             {groups.map(g => (
-              <li key={g.id}>
+              <li key={g.id} className="flex items-center justify-between">
                 <button 
                   onClick={() => navigate(`/dashboard/group/${g.id}`)}
-                  className="block w-full rounded-md bg-gray-100 px-4 py-2 text-left text-base font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  className="block flex-grow rounded-md bg-gray-100 px-4 py-2 text-left text-base font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   {g.name || "名称未設定グループ"}
                 </button>
+                
+                {/* 削除ボタンと確認ダイアログ */}
+                {deleteConfirmId === g.id ? (
+                  <div className="flex items-center space-x-2 ml-2">
+                    <span className="text-sm text-gray-600">グループを削除しますか？</span>
+                    <button
+                      onClick={() => confirmDeleteGroup(g.id)}
+                      className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                    >
+                      OK
+                    </button>
+                    <button
+                      onClick={cancelDelete}
+                      className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => showDeleteConfirm(g.id)}
+                    className="ml-2 w-8 h-8 flex items-center justify-center text-lg font-bold text-red-600 bg-red-100 rounded-full hover:bg-red-200"
+                    aria-label="削除"
+                  >
+                    ✕
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -277,6 +304,7 @@ const Dashboard = () => {
   const [currentGroup, setCurrentGroup] = useState(null);
   const [players, setPlayers] = useState(['', '', '', '']);
   const [pastPlayerNames, setPastPlayerNames] = useState([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
@@ -442,6 +470,47 @@ const Dashboard = () => {
     }
   };
   
+  // Firestore からグループを削除
+const deleteGroupFromFirebase = async (groupId) => {
+  if (!user) return;
+  
+  try {
+    const groupToDelete = groups.find(g => String(g.id) === String(groupId));
+    if (groupToDelete && groupToDelete.docId) {
+      const docRef = doc(db, "groups", groupToDelete.docId);
+      await deleteDoc(docRef);
+      console.log("グループ削除:", groupId);
+      // ローカル state からも削除
+      setGroups(prev => prev.filter(g => String(g.id) !== String(groupId)));
+      return true;
+    } else {
+      console.error("削除するグループのdocIdが見つかりません");
+      return false;
+    }
+  } catch (error) {
+    console.error("グループ削除エラー:", error);
+    return false;
+  }
+};
+
+// 削除確認ダイアログを表示
+const showDeleteConfirm = (groupId) => {
+  setDeleteConfirmId(groupId);
+};
+
+// 削除キャンセル
+const cancelDelete = () => {
+  setDeleteConfirmId(null);
+};
+
+// 削除確定
+const confirmDeleteGroup = async (groupId) => {
+  const success = await deleteGroupFromFirebase(groupId);
+  if (success) {
+    setDeleteConfirmId(null);
+  }
+};
+
   // 新規グループ作成
   const createNewGroup = () => {
     if (!user) return;
@@ -512,7 +581,10 @@ const getRankPointsFromOption = (option) => {
     
     // URLパスに基づいてコンポーネントを表示
     if (path === '/' || path === '/dashboard') {
-      return <GroupList groups={groups} navigate={navigate} />;
+      return <GroupList groups={groups} navigate={navigate} deleteConfirmId={deleteConfirmId}
+      showDeleteConfirm={showDeleteConfirm}
+      cancelDelete={cancelDelete}
+      confirmDeleteGroup={confirmDeleteGroup} />;
     }
     
     if (path === '/dashboard/create') {
