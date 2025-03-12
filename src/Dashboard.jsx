@@ -96,70 +96,71 @@ const GroupDetail = ({
   updateGroupInFirebase, navigate
 }) => {
   
-  // ゲーム結果を追加
-  const addGameScore = () => {
-    const { rank1, rank2, rank3, rank4 } = currentGameScore;
-    if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
-  
-     // グループに設定された順位点を取得（デフォルトは10-30）
-     const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
-     
-    // 持ち点から最終スコアを計算
-    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
-    const finalScores = {
-      rank1: finalScoresObj[0],
-      rank2: finalScoresObj[1],
-      rank3: finalScoresObj[2],
-      rank4: finalScoresObj[3]
-    };
-  
-    const newGame = {
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      inputScores: {
-        rank1: Number(rank1),
-        rank2: Number(rank2),
-        rank3: Number(rank3),
-        rank4: Number(rank4)
-      },
-      finalScores
-    };
-  
-    // 順位回数を更新
-    const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
-  
-    const sortedPlayers = Object.keys(finalScores)
-      .map((key, index) => ({
-        player: players[index],
-        score: finalScores[key]
-      }))
-      .sort((a, b) => b.score - a.score);
-  
-    sortedPlayers.forEach((player, index) => {
-      if (!updatedRankingCounts[player.player]) {
-        updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
-      }
-      updatedRankingCounts[player.player][`${index + 1}位`] += 1;
-    });
-  
-    // グループ更新
-    const updatedGroup = {
-      ...currentGroup,
-      games: [...currentGroup.games, newGame],
-      rankingCounts: updatedRankingCounts
-    };
-  
-    // 再集計
-    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-  
-    // state & Firestore に反映
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-    updateGroupInFirebase(updatedGroup);
-  
-    // 入力欄クリア
-    setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+  // 修正版の addGameScore 関数
+const addGameScore = () => {
+  const { rank1, rank2, rank3, rank4 } = currentGameScore;
+  if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
+
+  // 持ち点から最終スコアを計算
+  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+  const finalScores = {
+    rank1: finalScoresObj[0],
+    rank2: finalScoresObj[1],
+    rank3: finalScoresObj[2],
+    rank4: finalScoresObj[3]
   };
+
+  const newGame = {
+    id: Date.now(),
+    createdAt: new Date().toISOString(),
+    inputScores: {
+      rank1: Number(rank1),
+      rank2: Number(rank2),
+      rank3: Number(rank3),
+      rank4: Number(rank4)
+    },
+    finalScores
+  };
+
+  // 順位回数を更新
+  const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
+
+  // プレイヤーと最終スコアをマッピングした配列を作成
+  const sortedPlayers = Object.keys(finalScores)
+    .map((key, index) => ({
+      player: players[index],
+      score: finalScores[key]
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  // 得点に基づいて順位を決定し、rankingCounts を更新
+  sortedPlayers.forEach((player, index) => {
+    if (!player.player || !player.player.trim()) return; // 空のプレイヤー名はスキップ
+    
+    if (!updatedRankingCounts[player.player]) {
+      updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+    }
+    updatedRankingCounts[player.player][`${index + 1}位`] += 1;
+  });
+
+  // グループ更新
+  const updatedGroup = {
+    ...currentGroup,
+    games: [...currentGroup.games, newGame],
+    rankingCounts: updatedRankingCounts
+  };
+
+  // 再集計
+  updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+
+  // state & Firestore に反映
+  setCurrentGroup(updatedGroup);
+  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+  updateGroupInFirebase(updatedGroup);
+
+  // 入力欄クリア
+  setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+};
 
   // ゲーム結果を編集
   const handleEditGameScore = (gameId, rankKey, newValue) => {
