@@ -6,9 +6,19 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import SEO from './components/Dashboard/SEO/SEO';
 
+// 今日の日付を "YYYY-MM-DD" 形式で取得する関数
+function getTodayDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function Home() {
   const navigate = useNavigate();
-  const [groupName, setGroupName] = useState('');
+  // デフォルトで今日の日付を設定
+  const [groupName, setGroupName] = useState(getTodayDate());
   const [groups, setGroups] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // 削除確認用のステート
@@ -56,12 +66,14 @@ function Home() {
     // グループ名が空の場合は、現在の日付をデフォルト名として設定
     let name = groupName.trim();
     if (!name) {
-      const today = new Date();
-      name = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      name = getTodayDate();
     }
 
+    const today = getTodayDate();
+    
     const newGroup = {
       name: name,
+      date: today, // 日付フィールドも追加
       createdAt: new Date().toISOString(),
       userId: currentUser.uid,
       // 基本的なデータ構造を初期化

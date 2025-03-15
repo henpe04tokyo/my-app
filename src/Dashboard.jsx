@@ -1,7 +1,8 @@
+// src/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
 import { settings, calculateFinalScoresFromInputs, recalcFinalStats } from './utils/scoreCalculation';
@@ -22,13 +23,16 @@ const GroupDetail = ({
   updateGroupInFirebase, navigate
 }) => {
   
-  // 修正版の addGameScore 関数
+// addGameScore 関数の修正部分
 const addGameScore = () => {
   const { rank1, rank2, rank3, rank4 } = currentGameScore;
   if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
 
-  // 持ち点から最終スコアを計算
-  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+  // 現在のグループの順位点設定を取得
+  const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
+
+  // 持ち点から最終スコアを計算 - ここで正しい rankPoints を渡す
+  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
   const finalScores = {
     rank1: finalScoresObj[0],
     rank2: finalScoresObj[1],
@@ -374,18 +378,6 @@ const Dashboard = () => {
     }
   };
 
-  // オプション文字列から順位点配列を取得するヘルパー関数
-  const getRankPointsFromOption = (option) => {
-    switch (option) {
-      case '5-10': return [0, 5, -5, -10];
-      case '5-15': return [0, 5, -5, -15];
-      case '10-20': return [0, 10, -10, -20];
-      case '20-30': return [0, 20, -20, -30];
-      case '10-30':
-      default: return [0, 10, -10, -30];
-    }
-  };
-  
   // ローディング中の表示
   if (loading) {
     return (

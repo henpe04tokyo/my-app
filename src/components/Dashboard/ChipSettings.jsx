@@ -1,4 +1,5 @@
 import React from 'react';
+import { getRankPointsFromOption } from '../../utils/scoreCalculation';
 
 const ChipSettings = ({ 
   chipDistribution, 
@@ -92,6 +93,8 @@ const ChipSettings = ({
                   // 選択された順位点オプションに対応するポイント配列を取得
                   const selectedPointsObj = rankPointOptions.find(opt => opt.value === selectedOption);
                   const rankPoints = selectedPointsObj ? selectedPointsObj.points : [0, 10, -10, -30];
+                  
+                  console.log(`順位点設定を変更: ${selectedOption}`, rankPoints);
                   
                   const updatedGroup = {
                     ...currentGroup,

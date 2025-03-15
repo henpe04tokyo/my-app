@@ -1,4 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+
+// 今日の日付を "YYYY-MM-DD" 形式で取得する関数
+function getTodayDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 const PlayerSettings = ({ 
   basicDate, 
@@ -12,6 +21,36 @@ const PlayerSettings = ({
   setGroups,
   updateGroupInFirebase
 }) => {
+  // コンポーネントがマウントされたときに、もし日付が未設定なら今日の日付をセット
+  useEffect(() => {
+    if (!basicDate) {
+      const today = getTodayDate();
+      setBasicDate(today);
+      
+      // 現在のグループが存在し、かつ日付が未設定の場合は更新
+      if (currentGroup) {
+        const updatedGroup = { 
+          ...currentGroup, 
+          date: today, 
+          // グループ名も日付にする（もし名前がない場合）
+          name: currentGroup.name || today
+        };
+        
+        if (setCurrentGroup) {
+          setCurrentGroup(updatedGroup);
+        }
+        
+        if (groups && setGroups) {
+          setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+        }
+        
+        if (updateGroupInFirebase) {
+          updateGroupInFirebase(updatedGroup);
+        }
+      }
+    }
+  }, [basicDate, setBasicDate, currentGroup, setCurrentGroup, groups, setGroups, updateGroupInFirebase]);
+
   // 安全にアクセスするためのヘルパー関数
   const safeUpdate = (updatedData) => {
     try {

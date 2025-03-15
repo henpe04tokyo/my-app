@@ -57,73 +57,96 @@ function GroupDetail() {
     rank4: ''
   });
 
-  // グループデータを取得する
-  useEffect(() => {
-    const fetchGroupData = async () => {
-      try {
-        setLoading(true);
-        
-        // Firestore からグループデータを取得
-        const groupRef = doc(db, "groups", groupId);
-        const groupSnap = await getDoc(groupRef);
-        
-        if (!groupSnap.exists()) {
-          setError("グループが見つかりません");
-          setLoading(false);
-          return;
-        }
-        
-        // グループデータを取得して状態を更新
-        const groupData = { ...groupSnap.data(), id: groupId, docId: groupId };
-        
-        console.log("取得したグループデータ:", groupData);
-        
-        // グループデータを設定
-        setGroup(groupData);
-        
-        // 関連する状態を更新
-        if (groupData.players) {
-          setPlayers(groupData.players);
-        }
-        
-        if (groupData.date) {
-          setBasicDate(groupData.date);
-        }
-        
-        if (groupData.settings) {
-          if (groupData.settings.chipDistribution) {
-            setChipDistribution(groupData.settings.chipDistribution);
-          }
-          if (groupData.settings.rankPointOption) {
-            setRankPointOption(groupData.settings.rankPointOption);
-          }
-        }
-        
-        if (groupData.chipRow) {
-          setChipRow(groupData.chipRow || {
-            rank1: '',
-            rank2: '',
-            rank3: '',
-            rank4: ''
-          });
-        }
-        
-        // ゲームデータを設定
-        if (Array.isArray(groupData.games)) {
-          setGames(groupData.games);
-        }
-        
-        // 読み込み完了
+  function getTodayDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  
+ // useEffect内の日付設定部分を修正
+useEffect(() => {
+  const fetchGroupData = async () => {
+    try {
+      setLoading(true);
+      
+      // Firestore からグループデータを取得
+      const groupRef = doc(db, "groups", groupId);
+      const groupSnap = await getDoc(groupRef);
+      
+      if (!groupSnap.exists()) {
+        setError("グループが見つかりません");
         setLoading(false);
-      } catch (err) {
-        console.error("グループデータ取得エラー:", err);
-        setError("データの読み込み中にエラーが発生しました");
-        setLoading(false);
+        return;
       }
-    };
-    
-    fetchGroupData();
-  }, [groupId]);
+      
+      // グループデータを取得して状態を更新
+      const groupData = { ...groupSnap.data(), id: groupId, docId: groupId };
+      
+      console.log("取得したグループデータ:", groupData);
+      
+      // グループデータを設定
+      setGroup(groupData);
+      
+      // 関連する状態を更新
+      if (groupData.players) {
+        setPlayers(groupData.players);
+      }
+      
+      // 日付の設定 - もし日付がなければ今日の日付をセット
+      if (groupData.date) {
+        setBasicDate(groupData.date);
+      } else {
+        const today = getTodayDate();
+        setBasicDate(today);
+        
+        // グループデータにも日付を追加して更新
+        groupData.date = today;
+        groupData.name = groupData.name || today;
+        
+        // Firestoreを更新
+        const docRef = doc(db, "groups", groupId);
+        await updateDoc(docRef, {
+          date: today,
+          name: groupData.name
+        });
+      }
+      
+      if (groupData.settings) {
+        if (groupData.settings.chipDistribution) {
+          setChipDistribution(groupData.settings.chipDistribution);
+        }
+        if (groupData.settings.rankPointOption) {
+          setRankPointOption(groupData.settings.rankPointOption);
+        }
+      }
+      
+      if (groupData.chipRow) {
+        setChipRow(groupData.chipRow || {
+          rank1: '',
+          rank2: '',
+          rank3: '',
+          rank4: ''
+        });
+      }
+      
+      // ゲームデータを設定
+      if (Array.isArray(groupData.games)) {
+        setGames(groupData.games);
+      }
+      
+      // 読み込み完了
+      setLoading(false);
+    } catch (err) {
+      console.error("グループデータ取得エラー:", err);
+      setError("データの読み込み中にエラーが発生しました");
+      setLoading(false);
+    }
+  };
+  
+  fetchGroupData();
+}, [groupId]);
 
  // GroupDetail.jsx - ハンドルAddGame関数の実装部分
 
@@ -135,8 +158,12 @@ const handleAddGame = () => {
     return;
   }
 
-  // 持ち点から最終スコアを計算
-  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore);
+  // 現在のグループの設定から順位点を取得
+  const rankPoints = group.settings?.rankPoints || [0, 10, -10, -30];
+  console.log("使用する順位点:", rankPoints); // デバッグ用
+
+  // 持ち点から最終スコアを計算 - 正しい rankPoints を渡す
+  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
   const finalScores = {
     rank1: finalScoresObj[0],
     rank2: finalScoresObj[1],

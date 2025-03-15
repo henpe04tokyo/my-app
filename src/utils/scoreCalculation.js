@@ -9,6 +9,22 @@ export const settings = {
 };
 
 /**
+ * 順位点オプションから対応する順位点配列を取得
+ * @param {string} option - 順位点オプション (例: '10-30')
+ * @returns {Array} - 順位点配列
+ */
+export function getRankPointsFromOption(option) {
+  switch (option) {
+    case '5-10': return [0, 5, -5, -10];
+    case '5-15': return [0, 5, -5, -15];
+    case '10-20': return [0, 10, -10, -20];
+    case '20-30': return [0, 20, -20, -30];
+    case '10-30':
+    default: return [0, 10, -10, -30];
+  }
+}
+
+/**
  * 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
  * @param {number} score - 丸める点数
  * @returns {number} - 丸められた千点単位の整数値
