@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
@@ -10,87 +10,13 @@ import GameResultsTable from './components/Dashboard/GameResultsTable';
 import PlayerSettings from './components/Dashboard/PlayerSettings';
 import ChipSettings from './components/Dashboard/ChipSettings';
 
-// グループリスト表示コンポーネント
-const GroupList = ({ groups, navigate, deleteConfirmId, showDeleteConfirm, cancelDelete, confirmDeleteGroup }) => {
-  return (
-    <div className="container mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-8 text-center text-3xl font-bold text-gray-900">麻雀スコア計算アプリ - トップページ</h1>
-      
-      <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800">新しいグループ作成</h2>
-        <button 
-          onClick={() => navigate('/dashboard/create')}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-base font-medium text-white transition duration-150 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          グループ作成
-        </button>
-      </div>
-      
-      {groups.length > 0 && (
-        <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-semibold text-gray-800">既存グループ一覧</h2>
-          <ul className="space-y-2">
-            {groups.map(g => (
-              <li key={g.id} className="flex items-center justify-between">
-                <button 
-                  onClick={() => navigate(`/dashboard/group/${g.id}`)}
-                  className="block flex-grow rounded-md bg-gray-100 px-4 py-2 text-left text-base font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  {g.name || "名称未設定グループ"}
-                </button>
-                
-                {/* 削除ボタンと確認ダイアログ */}
-                {deleteConfirmId === g.id ? (
-                  <div className="flex items-center space-x-2 ml-2">
-                    <span className="text-sm text-gray-600">グループを削除しますか？</span>
-                    <button
-                      onClick={() => confirmDeleteGroup(g.id)}
-                      className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                    >
-                      OK
-                    </button>
-                    <button
-                      onClick={cancelDelete}
-                      className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => showDeleteConfirm(g.id)}
-                    className="ml-2 w-8 h-8 flex items-center justify-center text-lg font-bold text-red-600 bg-red-100 rounded-full hover:bg-red-200"
-                    aria-label="削除"
-                  >
-                    ✕
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
-      <div className="rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800">データ分析</h2>
-        <button 
-          onClick={() => navigate('/dashboard/analysis')}
-          className="rounded-md bg-green-600 px-4 py-2 text-base font-medium text-white transition duration-150 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-        >
-          集計
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // グループ詳細コンポーネント
 const GroupDetail = ({ 
   groups, setGroups, currentGroup, setCurrentGroup, 
   players, setPlayers, pastPlayerNames,
   basicDate, setBasicDate,
   chipDistribution, setChipDistribution,
-  rankPointOption, setRankPointOption,  // この2行を追加
+  rankPointOption, setRankPointOption,
   currentGameScore, setCurrentGameScore,
   chipRow, setChipRow,
   updateGroupInFirebase, navigate
@@ -228,19 +154,19 @@ const addGameScore = () => {
       <header className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4">
         <h1 className="text-2xl font-bold text-gray-900">ダッシュボード</h1>
         <button 
-          onClick={() => navigate('/dashboard/logout')}
+          onClick={() => navigate('/')}
           className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition duration-150 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
         >
-          ログアウト
+          ホームに戻る
         </button>
       </header>
       
       <div className="mb-6 flex items-center justify-between">
         <button 
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/')}
           className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          トップページに戻る
+          グループ一覧に戻る
         </button>
         <h2 className="text-xl font-bold text-indigo-600">{currentGroup.name || "名称未設定グループ"}</h2>
       </div>
@@ -305,7 +231,6 @@ const Dashboard = () => {
   const [currentGroup, setCurrentGroup] = useState(null);
   const [players, setPlayers] = useState(['', '', '', '']);
   const [pastPlayerNames, setPastPlayerNames] = useState([]);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [currentGameScore, setCurrentGameScore] = useState({
     rank1: '',
     rank2: '',
@@ -344,15 +269,11 @@ const Dashboard = () => {
   
     const fetchGroups = async () => {
       try {
+        // 最初にロード状態を設定
+        setLoading(true);
+        
         const q = query(collection(db, "groups"), where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-          console.log("グループデータが見つかりません");
-          setGroups([]);
-          setLoading(false);
-          return;
-        }
         
         const groupsData = [];
         const allNames = new Set();
@@ -387,9 +308,17 @@ const Dashboard = () => {
         setGroups(groupsData);
         setPastPlayerNames(Array.from(allNames));
         
+        // 現在のパスが分析画面の場合は、グループID不要でそのまま処理を続ける
+        const path = location.pathname;
+        const isAnalysisPath = path === '/dashboard/analysis';
+        
         // URLのグループIDがある場合、該当グループをセット
         if (groupId) {
-          const foundGroup = groupsData.find(g => String(g.id) === String(groupId));
+          const foundGroup = groupsData.find(g => 
+            String(g.id) === String(groupId) || 
+            g.docId === groupId
+          );
+          
           if (foundGroup) {
             setCurrentGroup(foundGroup);
             setPlayers(foundGroup.players || ['', '', '', '']);
@@ -402,55 +331,29 @@ const Dashboard = () => {
             setBasicDate(foundGroup.date || '');
             setChipDistribution(foundGroup.settings?.chipDistribution || '');
             setRankPointOption(foundGroup.settings?.rankPointOption || '10-30');
+          } else {
+            console.log(`グループID: ${groupId} が見つかりません。`);
+            // グループが見つからない場合は、トップページにリダイレクト
+            if (!isAnalysisPath) {
+              navigate('/');
+            }
           }
+        } else if (!isAnalysisPath) {
+          // 分析画面でなく、かつグループIDが指定されていない場合はホームページにリダイレクト
+          navigate('/');
         }
       } catch (error) {
         console.error("グループデータ取得エラー:", error);
       } finally {
+        // 処理完了後にローディング状態を解除
         setLoading(false);
       }
     };
   
     fetchGroups();
-  }, [user, groupId, navigate]);
+  }, [user, groupId, navigate, location.pathname]);
 
   // ========== Functions ==========
-
-  // ログアウト処理
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/login');
-    } catch (err) {
-      console.error("ログアウトエラー:", err);
-    }
-  };
-
-  // Firestore にグループを保存
-  const saveGroupToFirebase = async (groupData) => {
-    if (!user) return;
-    
-    try {
-      const docRef = await addDoc(collection(db, "groups"), {
-        ...groupData,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-      });
-      
-      const updatedGroupData = { ...groupData, docId: docRef.id };
-      
-      setGroups(prev => prev.map(g => g.id === groupData.id ? updatedGroupData : g));
-      if (currentGroup && currentGroup.id === groupData.id) {
-        setCurrentGroup(updatedGroupData);
-      }
-      
-      console.log("グループ保存, id=", docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error("グループ保存エラー:", error);
-      return null;
-    }
-  };
 
   // Firestore のグループを更新
   const updateGroupInFirebase = async (groupData) => {
@@ -470,86 +373,19 @@ const Dashboard = () => {
       return false;
     }
   };
-  
-  // Firestore からグループを削除
-const deleteGroupFromFirebase = async (groupId) => {
-  if (!user) return;
-  
-  try {
-    const groupToDelete = groups.find(g => String(g.id) === String(groupId));
-    if (groupToDelete && groupToDelete.docId) {
-      const docRef = doc(db, "groups", groupToDelete.docId);
-      await deleteDoc(docRef);
-      console.log("グループ削除:", groupId);
-      // ローカル state からも削除
-      setGroups(prev => prev.filter(g => String(g.id) !== String(groupId)));
-      return true;
-    } else {
-      console.error("削除するグループのdocIdが見つかりません");
-      return false;
+
+  // オプション文字列から順位点配列を取得するヘルパー関数
+  const getRankPointsFromOption = (option) => {
+    switch (option) {
+      case '5-10': return [0, 5, -5, -10];
+      case '5-15': return [0, 5, -5, -15];
+      case '10-20': return [0, 10, -10, -20];
+      case '20-30': return [0, 20, -20, -30];
+      case '10-30':
+      default: return [0, 10, -10, -30];
     }
-  } catch (error) {
-    console.error("グループ削除エラー:", error);
-    return false;
-  }
-};
-
-// 削除確認ダイアログを表示
-const showDeleteConfirm = (groupId) => {
-  setDeleteConfirmId(groupId);
-};
-
-// 削除キャンセル
-const cancelDelete = () => {
-  setDeleteConfirmId(null);
-};
-
-// 削除確定
-const confirmDeleteGroup = async (groupId) => {
-  const success = await deleteGroupFromFirebase(groupId);
-  if (success) {
-    setDeleteConfirmId(null);
-  }
-};
-
-  // 新規グループ作成
-  const createNewGroup = () => {
-    if (!user) return;
-    
-    const newGroup = {
-      id: Date.now(),
-      userId: user.uid,
-      name: "グループ名未設定",
-      date: "",
-      settings: { ...settings, chipDistribution,rankPointOption: rankPointOption,
-        rankPoints: getRankPointsFromOption(rankPointOption) },
-      players: ['', '', '', ''],
-      games: [],
-      finalStats: {},
-      chipRow: {},
-      rankingCounts: {}
-    };
-    
-    setGroups(prev => [...prev, newGroup]);
-    setCurrentGroup(newGroup);
-    saveGroupToFirebase(newGroup).then(docId => {
-      if (docId) {
-        navigate(`/dashboard/group/${newGroup.id}`);
-      }
-    });
   };
-
-// オプション文字列から順位点配列を取得するヘルパー関数
-const getRankPointsFromOption = (option) => {
-  switch (option) {
-    case '5-10': return [0, 5, -5, -10];
-    case '5-15': return [0, 5, -5, -15];
-    case '10-20': return [0, 10, -10, -20];
-    case '20-30': return [0, 20, -20, -30];
-    case '10-30':
-    default: return [0, 10, -10, -30];
-  }
-};
+  
   // ローディング中の表示
   if (loading) {
     return (
@@ -580,28 +416,6 @@ const getRankPointsFromOption = (option) => {
   const renderContent = () => {
     const path = location.pathname;
     
-    // URLパスに基づいてコンポーネントを表示
-    if (path === '/' || path === '/dashboard') {
-      return <GroupList groups={groups} navigate={navigate} deleteConfirmId={deleteConfirmId}
-      showDeleteConfirm={showDeleteConfirm}
-      cancelDelete={cancelDelete}
-      confirmDeleteGroup={confirmDeleteGroup} />;
-    }
-    
-    if (path === '/dashboard/create') {
-      return (
-        <div className="container mx-auto py-8 text-center">
-          <h2 className="mb-4 text-xl">新しいグループを作成中...</h2>
-          <button 
-            onClick={createNewGroup}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-base font-medium text-white"
-          >
-            グループ作成
-          </button>
-        </div>
-      );
-    }
-    
     if (path.startsWith('/dashboard/group/')) {
       return (
         <GroupDetail 
@@ -616,8 +430,8 @@ const getRankPointsFromOption = (option) => {
           setBasicDate={setBasicDate}
           chipDistribution={chipDistribution}
           setChipDistribution={setChipDistribution}
-          rankPointOption={rankPointOption}       // この行を追加
-          setRankPointOption={setRankPointOption} // この行を追加
+          rankPointOption={rankPointOption}      
+          setRankPointOption={setRankPointOption}
           currentGameScore={currentGameScore}
           setCurrentGameScore={setCurrentGameScore}
           chipRow={chipRow}
@@ -629,33 +443,12 @@ const getRankPointsFromOption = (option) => {
     }
     
     if (path === '/dashboard/analysis') {
-      return <Analysis groups={groups} onClose={() => navigate('/dashboard')} />;
+      return <Analysis groups={groups} onClose={() => navigate('/')} />;
     }
     
-    if (path === '/dashboard/logout') {
-      return (
-        <div className="container mx-auto py-8 text-center">
-          <h2 className="mb-4 text-xl">ログアウトしますか？</h2>
-          <div className="flex justify-center space-x-4">
-            <button 
-              onClick={handleLogout}
-              className="rounded-md bg-red-600 px-4 py-2 text-base font-medium text-white"
-            >
-              ログアウト
-            </button>
-            <button 
-              onClick={() => navigate(-1)}
-              className="rounded-md bg-gray-300 px-4 py-2 text-base font-medium text-gray-700"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
-    // デフォルトはグループリスト
-    return <GroupList groups={groups} navigate={navigate} />;
+    // その他のURLはホームにリダイレクト
+    navigate('/');
+    return null;
   };
 
   return renderContent();

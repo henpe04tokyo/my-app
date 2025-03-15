@@ -76,17 +76,10 @@ const Analysis = ({ groups, onClose }) => {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <button
+      <button 
         onClick={onClose}
-        className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 ease-in-out flex items-center"
+        className="mb-6 rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
         トップページに戻る
       </button>
       
@@ -134,37 +127,39 @@ const Analysis = ({ groups, onClose }) => {
         </div>
       </div>
       
-      {/* プレイヤーごとの順位統計テーブル */}
-      {selectedPlayer && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">プレイヤー順位統計</h2>
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
-                    順位
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
-                    回数
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    割合
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {["1位", "2位", "3位", "4位"].map((rank, idx) => {
-                  // 該当プレイヤーの順位回数を集計
-                  let count = 0;
+      {/* プレイヤーごとの順位統計テーブル - 常に表示 */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">プレイヤー順位統計</h2>
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                  順位
+                </th>
+                <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                  回数
+                </th>
+                <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  割合
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {["1位", "2位", "3位", "4位"].map((rank, idx) => {
+                // 該当プレイヤーの順位回数を集計
+                let count = 0;
+                if (selectedPlayer) {
                   filteredGroups.forEach(g => {
                     if (g.rankingCounts && g.rankingCounts[selectedPlayer] && g.rankingCounts[selectedPlayer][rank]) {
                       count += g.rankingCounts[selectedPlayer][rank];
                     }
                   });
-                  
-                  // 総ゲーム数を計算（各順位の合計）
-                  let totalGames = 0;
+                }
+                
+                // 総ゲーム数を計算（各順位の合計）
+                let totalGames = 0;
+                if (selectedPlayer) {
                   ["1位", "2位", "3位", "4位"].forEach(r => {
                     filteredGroups.forEach(g => {
                       if (g.rankingCounts && g.rankingCounts[selectedPlayer] && g.rankingCounts[selectedPlayer][r]) {
@@ -172,29 +167,32 @@ const Analysis = ({ groups, onClose }) => {
                       }
                     });
                   });
-                  
-                  // パーセント計算（小数点第1位まで）
-                  const percentage = totalGames > 0 ? (count / totalGames * 100).toFixed(1) : "0.0";
-                  
-                  return (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border-r">
-                        {rank}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right border-r">
-                        {count}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {percentage}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                }
+                
+                // パーセント計算（小数点第1位まで）
+                const percentage = totalGames > 0 ? (count / totalGames * 100).toFixed(1) : "0.0";
+                
+                return (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border-r">
+                      {rank}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right border-r">
+                      {count}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {percentage}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+        {!selectedPlayer && (
+          <p className="mt-2 text-sm text-gray-500 text-center">プレイヤーを選択すると、詳細な統計が表示されます</p>
+        )}
+      </div>
       
       {tableData.rows.length > 0 ? (
         <div className="overflow-x-auto">
