@@ -359,24 +359,47 @@ const Dashboard = () => {
 
   // ========== Functions ==========
 
-  // Firestore のグループを更新
-  const updateGroupInFirebase = async (groupData) => {
-    if (!user) return;
+// src/Dashboard.jsx の updateGroupInFirebase 関数を修正
+
+const updateGroupInFirebase = async (groupData) => {
+  if (!user) return;
+  
+  try {
+    const docId = groupData.docId || String(groupData.id);
+    const docRef = doc(db, "groups", docId);
     
-    try {
-      const docId = groupData.docId || String(groupData.id);
-      const docRef = doc(db, "groups", docId);
-      
-      const { docId: _, ...dataToSave } = groupData;
-      
-      await updateDoc(docRef, dataToSave);
-      console.log("グループ更新:", groupData.id);
-      return true;
-    } catch (error) {
-      console.error("グループ更新エラー:", error);
-      return false;
+    // docIdはFirestoreのフィールドとしては保存しない
+    const { docId: _, ...dataToSave } = groupData;
+    
+    // 現在のUnixタイムスタンプを追加して、更新日時を記録
+    const updatedData = {
+      ...dataToSave,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    console.log("Firestoreに保存中:", docId, updatedData);
+    
+    // 更新前に再計算を実行して確実に最新データを保存
+    if (updatedData.games && Array.isArray(updatedData.games)) {
+      updatedData.finalStats = recalcFinalStats(updatedData);
     }
-  };
+    
+    // Firestoreに保存
+    await updateDoc(docRef, updatedData);
+    console.log("グループ更新完了:", groupData.id);
+    
+    // ローカルステートも更新
+    const updatedGroups = groups.map(g => 
+      (g.id === groupData.id) ? { ...updatedData, docId } : g
+    );
+    setGroups(updatedGroups);
+    
+    return true;
+  } catch (error) {
+    console.error("グループ更新エラー:", error);
+    return false;
+  }
+};
 
   // ローディング中の表示
   if (loading) {

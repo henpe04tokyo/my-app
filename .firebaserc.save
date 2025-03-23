@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "mahjong-first",
+    "prod": "mahjong-first",
+    "production": "mahjong-dev-a4d01"
+  }
+}

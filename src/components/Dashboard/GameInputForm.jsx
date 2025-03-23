@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const GameInputForm = ({ 
   players, 
@@ -6,6 +6,9 @@ const GameInputForm = ({
   setCurrentGameScore, 
   addGameScore 
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
   // 安全にスコアを更新するヘルパー関数
   const safeUpdateScore = (rankKey, value) => {
     try {
@@ -17,6 +20,28 @@ const GameInputForm = ({
       }
     } catch (error) {
       console.error("Score update error:", error);
+    }
+  };
+
+  // ゲームスコア追加の処理
+  const handleAddGameScore = async () => {
+    if ([currentGameScore.rank1, currentGameScore.rank2, currentGameScore.rank3, currentGameScore.rank4].some(v => v === '')) {
+      alert('すべてのプレイヤーのスコアを入力してください');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addGameScore();
+      setSubmitSuccess(true);
+      
+      // 3秒後に成功メッセージを非表示にする
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch (error) {
+      console.error("Add game score error:", error);
+      alert('スコア追加中にエラーが発生しました。もう一度お試しください。');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -41,19 +66,17 @@ const GameInputForm = ({
         ))}
       </div>
       <div className="mt-6">
+        {submitSuccess && (
+          <div className="mb-4 rounded-md bg-green-100 p-2 text-center text-sm text-green-700">
+            半荘結果を保存しました
+          </div>
+        )}
         <button 
-          onClick={() => {
-            try {
-              if (addGameScore) {
-                addGameScore();
-              }
-            } catch (error) {
-              console.error("Add game score error:", error);
-            }
-          }}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 text-base font-medium text-white transition duration-150 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          onClick={handleAddGameScore}
+          disabled={isSubmitting}
+          className={`w-full rounded-md ${isSubmitting ? 'bg-gray-400' : 'bg-indigo-600 hover:bg-indigo-700'} px-4 py-2 text-base font-medium text-white transition duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
         >
-          半荘結果を追加
+          {isSubmitting ? '保存中...' : '半荘結果を追加'}
         </button>
       </div>
     </div>

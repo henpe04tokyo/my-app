@@ -16,13 +16,21 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "serve": "serve -s build"
-  },
+ "scripts": {
+  "start": "react-scripts start",
+  "start:dev": "env-cmd -f .env.development react-scripts start",
+  "start:prod": "env-cmd -f .env.production react-scripts start",
+  "build": "react-scripts build",
+  "build:dev": "env-cmd -f .env.development react-scripts build",
+  "build:prod": "env-cmd -f .env.production react-scripts build",
+  "deploy:dev": "npm run build:dev && firebase use prod && firebase deploy",
+  "deploy:prod": "npm run build:prod && firebase use production && firebase deploy",
+  "switch:dev": "firebase use prod",
+  "switch:prod": "firebase use production",
+  "test": "react-scripts test",
+  "eject": "react-scripts eject",
+  "serve": "serve -s build"
+},
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -43,6 +51,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
+    "env-cmd": "^10.1.0",
     "postcss": "^8.5.3",
     "serve": "^14.2.4"
   }

@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🔐 ユーザー自身のデータのみ読み書き可
+    match /users/{userId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+
+    // 🔐 自分が作成したグループのみ操作可能
+    match /groups/{groupId} {
+   allow create: if request.auth != null; 
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+}
+
+
+    // 🔐 管理者のみアクセスできるデータ
+    match /admin/{doc} {
+      allow read, write: if request.auth.token.admin == true;
+    }
+  }
+}
