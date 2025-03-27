@@ -87,50 +87,101 @@ export function calculateFinalScoresFromInputs(inputs, rankPoints = settings.ran
  * @returns {Object} - 計算されたプレイヤー統計情報
  */
 export function recalcFinalStats(group) {
+  // データの存在確認 - 問題があればログを出力して空のオブジェクトを返す
+  if (!group) {
+    console.error("recalcFinalStats: グループデータがnullまたはundefinedです");
+    return {};
+  }
+
+  if (!Array.isArray(group.players)) {
+    console.error("recalcFinalStats: group.playersが配列ではありません", group.players);
+    return {};
+  }
+
+  if (!Array.isArray(group.games)) {
+    console.warn("recalcFinalStats: group.gamesが配列ではありません", group.games);
+    // gamesを空配列としてレスキュー
+    group.games = [];
+  }
+
+  console.log("recalcFinalStats: 計算開始", {
+    groupId: group.id || group.docId,
+    playerCount: group.players.length,
+    gameCount: group.games.length
+  });
+
+  // 各プレイヤーの統計を初期化
   const stats = {};
-  // プレイヤー名をキーに初期値
-  group.players.forEach((p) => {
-    const name = p.trim();
-    if (name) {
-      stats[name] = { finalResult: 0, chipBonus: 0, halfResult: 0 };
+  
+  group.players.forEach((player, index) => {
+    // プレイヤー名が存在し、空でなければ初期化
+    if (player && player.trim()) {
+      stats[player.trim()] = {
+        finalResult: 0,  // 半荘結果合計
+        chipBonus: 0,    // チップボーナス
+        halfResult: 0    // 最終結果 (finalResult + chipBonus)
+      };
     }
   });
 
-  // ゲームごとの finalScores を合算
-  group.games.forEach((game) => {
-    if (game.finalScores) {
-      for (let i = 1; i <= 4; i++) {
-        const rankKey = `rank${i}`;
-        const playerName = group.players[i - 1]?.trim();
-        if (playerName && typeof game.finalScores[rankKey] === 'number') {
-          stats[playerName].finalResult += game.finalScores[rankKey];
-        }
+  // ゲームごとの最終スコアを集計
+  group.games.forEach((game, gameIndex) => {
+    // ゲームデータの検証
+    if (!game || !game.finalScores) {
+      console.warn(`recalcFinalStats: ゲーム #${gameIndex} にfinalScoresがありません`);
+      return; // このゲームはスキップ
+    }
+
+    // 各プレイヤーのスコアを加算
+    for (let i = 0; i < 4; i++) {
+      const rankKey = `rank${i + 1}`;
+      const playerName = group.players[i]?.trim();
+      
+      // プレイヤー名が有効で、そのプレイヤーの統計が初期化されていて、スコアが数値である場合のみ加算
+      if (playerName && stats[playerName] && typeof game.finalScores[rankKey] === 'number') {
+        stats[playerName].finalResult += game.finalScores[rankKey];
       }
     }
   });
 
-  // チップボーナスを計算する前にデバッグログを追加
-  console.log("recalcFinalStats: group.chipRow =", group.chipRow);
-  console.log("recalcFinalStats: group.settings =", group.settings);
+  // デバッグ用に半荘結果合計をログ出力
+  for (const [playerName, data] of Object.entries(stats)) {
+    console.log(`recalcFinalStats: ${playerName}の半荘結果合計 = ${data.finalResult}`);
+  }
 
-  // チップボーナスを計算して加算
-  const distribution = Number(group.settings?.chipDistribution ?? 0);
-  group.players.forEach((p, index) => {
-    const name = p.trim();
-    if (!name) return;
+  // チップボーナスを計算
+  // チップ配点設定を取得 (デフォルト: 300)
+  const distribution = Number(group.settings?.chipDistribution) || 300;
+  console.log(`recalcFinalStats: チップ配点設定 = ${distribution}`);
 
+  // チップ入力が存在するか確認
+  const chipRow = group.chipRow || {};
+  console.log("recalcFinalStats: チップ入力", chipRow);
+
+  // 各プレイヤーのチップボーナスを計算
+  group.players.forEach((player, index) => {
+    if (!player || !player.trim()) return; // 空のプレイヤー名はスキップ
+    
+    const playerName = player.trim();
+    if (!stats[playerName]) return; // 統計が初期化されていない場合はスキップ
+    
     const rankKey = `rank${index + 1}`;
-    // group.chipRow にチップ入力があれば利用、なければ 20
-    const chipInput = group.chipRow && group.chipRow[rankKey] !== undefined
-      ? Number(group.chipRow[rankKey])
+    
+    // チップ入力値を取得 (デフォルト: 20)
+    const chipInput = chipRow[rankKey] !== undefined && chipRow[rankKey] !== '' 
+      ? Number(chipRow[rankKey]) 
       : 20;
-
-    // ボーナス計算: (chipInput - 20) * distribution / 100
+    
+    // ボーナス計算: (チップ - 20) * 配点 / 100
     const bonus = ((chipInput - 20) * distribution) / 100;
-
-    stats[name].chipBonus = bonus;
-    stats[name].halfResult = stats[name].finalResult + bonus;
+    stats[playerName].chipBonus = bonus;
+    
+    // 最終結果 = 半荘結果合計 + チップボーナス
+    stats[playerName].halfResult = stats[playerName].finalResult + bonus;
+    
+    console.log(`recalcFinalStats: ${playerName} チップボーナス = ${bonus}, 最終結果 = ${stats[playerName].halfResult}`);
   });
 
+  // 計算結果を返す
   return stats;
 }

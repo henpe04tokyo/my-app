@@ -1,5 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import RankingTable from './RankingTable.jsx';
+
+// テスト用の埋め込み計算ヘルパー
+const calculateTotalScore = (games, playerIndex) => {
+  if (!Array.isArray(games)) return 0;
+  
+  let total = 0;
+  const rankKey = `rank${playerIndex + 1}`;
+  
+  games.forEach(game => {
+    if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+      total += game.finalScores[rankKey];
+    }
+  });
+  
+  return total;
+};
+
+const calculateChipBonus = (chipValue, distribution) => {
+  const chipInput = chipValue !== undefined && chipValue !== '' 
+    ? Number(chipValue) 
+    : 20;
+  
+  return ((chipInput - 20) * distribution) / 100;
+};
 
 const GameResultsTable = ({ 
   currentGroup, 
@@ -11,6 +35,59 @@ const GameResultsTable = ({
 }) => {
   // モバイルビューで表示しているプレイヤーのインデックス
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
+  const [calculatedStats, setCalculatedStats] = useState({});
+  
+  // デバッグログとインラインでの緊急計算
+  useEffect(() => {
+    console.log("GameResultsTable マウント/更新時:", {
+      currentGroup: currentGroup?.id || currentGroup?.docId,
+      finalStats: currentGroup?.finalStats,
+      gamesLength: currentGroup?.games?.length || 0,
+    });
+    
+    // 強制的なインライン計算（最後の手段）
+    if (currentGroup && Array.isArray(currentGroup.games)) {
+      const stats = {};
+      
+      console.log("インライン計算開始、対象ゲーム数:", currentGroup.games.length);
+      console.log("プレイヤー:", players);
+      
+      players.forEach((player, idx) => {
+        if (player && player.trim()) {
+          const name = player.trim();
+          
+          // 半荘結果合計を計算
+          let finalResult = 0;
+          const rankKey = `rank${idx + 1}`;
+          
+          currentGroup.games.forEach((game, gameIdx) => {
+            if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+              finalResult += game.finalScores[rankKey];
+              console.log(`プレイヤー ${name} のゲーム ${gameIdx+1} スコア: ${game.finalScores[rankKey]}`);
+            } else {
+              console.log(`プレイヤー ${name} のゲーム ${gameIdx+1} にスコアなし`);
+            }
+          });
+          
+          // チップボーナスを計算
+          const distribution = Number(currentGroup.settings?.chipDistribution) || 300;
+          const chipValue = chipRow[rankKey];
+          const chipInput = chipValue !== undefined && chipValue !== '' 
+            ? Number(chipValue) 
+            : 20;
+          const chipBonus = ((chipInput - 20) * distribution) / 100;
+          
+          // 最終結果を計算
+          const halfResult = finalResult + chipBonus;
+          
+          stats[name] = { finalResult, chipBonus, halfResult };
+          console.log(`${name} の計算結果:`, stats[name]);
+        }
+      });
+      
+      setCalculatedStats(stats);
+    }
+  }, [currentGroup, players, chipRow]);
   
   // 安全な操作のためのヘルパー関数
   const safelyHandleEditGameScore = (gameId, rankKey, newValue) => {
@@ -43,8 +120,6 @@ const GameResultsTable = ({
     }
   };
 
-  if (!currentGroup) return <div className="rounded-lg bg-white p-6 shadow-md">グループが選択されていません</div>;
-
   // プレイヤー切り替えナビゲーション（モバイル用）
   const renderPlayerNav = () => {
     return (
@@ -66,16 +141,16 @@ const GameResultsTable = ({
     );
   };
 
+  if (!currentGroup) return <div className="rounded-lg bg-white p-6 shadow-md">グループが選択されていません</div>;
+
   return (
     <div className="rounded-lg bg-white p-6 shadow-md">
       <h2 className="mb-4 text-lg font-semibold text-gray-800 border-b pb-2">ゲーム結果履歴</h2>
       
-      {/* モバイル用プレイヤー切り替えナビゲーション */}
       {renderPlayerNav()}
       
       {currentGroup.games && Array.isArray(currentGroup.games) && currentGroup.games.length > 0 ? (
         <div className="overflow-x-auto">
-          {/* デスクトップ表示用テーブル */}
           <table className="min-w-full divide-y divide-gray-200 hidden md:table">
             <thead className="bg-gray-50">
               <tr>
@@ -89,7 +164,6 @@ const GameResultsTable = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {/* 各ゲームの行 */}
               {currentGroup.games.map((game, idx) => (
                 <tr key={game?.id || idx} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">
@@ -116,7 +190,6 @@ const GameResultsTable = ({
                 </tr>
               ))}
 
-              {/* チップ入力行 */}
               <tr className="bg-gray-50">
                 <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップ</td>
                 {["rank1", "rank2", "rank3", "rank4"].map((r) => (
@@ -132,14 +205,33 @@ const GameResultsTable = ({
                 <td className="whitespace-nowrap px-6 py-4"></td>
               </tr>
 
-              {/* 半荘結果合計行 */}
               <tr className="bg-gray-100">
                 <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">半荘結果合計</td>
                 {Array.isArray(players) && players.map((p, idx) => {
                   const name = p?.trim();
-                  const totalScore = name && currentGroup?.finalStats?.[name]
-                    ? currentGroup.finalStats[name].finalResult || 0
-                    : 0;
+                  
+                  // ここが重要: インラインでの再計算を優先
+                  let totalScore = 0;
+                  
+                  if (name && calculatedStats[name]) {
+                    totalScore = calculatedStats[name].finalResult;
+                    console.log(`表示: ${name} のインライン計算結果:`, totalScore);
+                  } else if (name && currentGroup?.finalStats?.[name]) {
+                    totalScore = currentGroup.finalStats[name].finalResult || 0;
+                    console.log(`表示: ${name} の Firestore 結果:`, totalScore);
+                  } else {
+                    // 最終手段: 直接ゲームから計算（表示時）
+                    const rankKey = `rank${idx + 1}`;
+                    if (Array.isArray(currentGroup.games)) {
+                      currentGroup.games.forEach(game => {
+                        if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+                          totalScore += game.finalScores[rankKey];
+                        }
+                      });
+                    }
+                    console.log(`表示: ${name} の直接計算結果:`, totalScore);
+                  }
+                  
                   return (
                     <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-700">
                       {totalScore.toLocaleString()}
@@ -149,14 +241,26 @@ const GameResultsTable = ({
                 <td className="whitespace-nowrap px-6 py-4"></td>
               </tr>
 
-              {/* チップボーナス行 */}
               <tr className="bg-indigo-50">
                 <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップボーナス</td>
                 {Array.isArray(players) && players.map((p, idx) => {
                   const name = p?.trim();
-                  const bonus = name && currentGroup?.finalStats?.[name]
-                    ? currentGroup.finalStats[name].chipBonus || 0
-                    : 0;
+                  
+                  // インラインでの再計算を優先
+                  let bonus = 0;
+                  
+                  if (name && calculatedStats[name]) {
+                    bonus = calculatedStats[name].chipBonus;
+                  } else if (name && currentGroup?.finalStats?.[name]) {
+                    bonus = currentGroup.finalStats[name].chipBonus || 0;
+                  } else {
+                    // 最終手段: 直接計算
+                    const rankKey = `rank${idx + 1}`;
+                    const distribution = Number(currentGroup.settings?.chipDistribution) || 300;
+                    const chipValue = chipRow[rankKey];
+                    bonus = calculateChipBonus(chipValue, distribution);
+                  }
+                  
                   return (
                     <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-indigo-600">
                       {bonus.toLocaleString()}
@@ -166,17 +270,41 @@ const GameResultsTable = ({
                 <td className="whitespace-nowrap px-6 py-4"></td>
               </tr>
 
-              {/* 最終結果行：半荘結果合計 + チップボーナス */}
               <tr className="bg-indigo-100">
                 <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-bold text-gray-900">最終結果</td>
                 {Array.isArray(players) && players.map((p, idx) => {
                   const name = p?.trim();
-                  const finalStats = name && currentGroup?.finalStats?.[name]
-                    ? currentGroup.finalStats[name]
-                    : { finalResult: 0, chipBonus: 0, halfResult: 0 };
+                  
+                  // インラインでの再計算を優先
+                  let finalResult = 0;
+                  
+                  if (name && calculatedStats[name]) {
+                    finalResult = calculatedStats[name].halfResult;
+                  } else if (name && currentGroup?.finalStats?.[name]) {
+                    finalResult = currentGroup.finalStats[name].halfResult || 0;
+                  } else {
+                    // 最終手段: 直接計算
+                    const rankKey = `rank${idx + 1}`;
+                    let totalScore = 0;
+                    
+                    if (Array.isArray(currentGroup.games)) {
+                      currentGroup.games.forEach(game => {
+                        if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+                          totalScore += game.finalScores[rankKey];
+                        }
+                      });
+                    }
+                    
+                    const distribution = Number(currentGroup.settings?.chipDistribution) || 300;
+                    const chipValue = chipRow[rankKey];
+                    const bonus = calculateChipBonus(chipValue, distribution);
+                    
+                    finalResult = totalScore + bonus;
+                  }
+                  
                   return (
                     <td key={idx} className="whitespace-nowrap px-6 py-4 text-right text-sm font-bold text-gray-900">
-                      {(finalStats.halfResult || 0).toLocaleString()}
+                      {finalResult.toLocaleString()}
                     </td>
                   );
                 })}
@@ -251,9 +379,24 @@ const GameResultsTable = ({
                   <td className="px-2 py-2 text-center text-xs font-medium text-gray-900">半荘結果</td>
                   {Array.isArray(players) && players.map((p, idx) => {
                     const name = p?.trim();
-                    const totalScore = name && currentGroup?.finalStats?.[name]
-                      ? currentGroup.finalStats[name].finalResult || 0
-                      : 0;
+                    let totalScore = 0;
+                    
+                    if (name && calculatedStats[name]) {
+                      totalScore = calculatedStats[name].finalResult;
+                    } else if (name && currentGroup?.finalStats?.[name]) {
+                      totalScore = currentGroup.finalStats[name].finalResult || 0;
+                    } else {
+                      // 直接計算
+                      const rankKey = `rank${idx + 1}`;
+                      if (Array.isArray(currentGroup.games)) {
+                        currentGroup.games.forEach(game => {
+                          if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+                            totalScore += game.finalScores[rankKey];
+                          }
+                        });
+                      }
+                    }
+                    
                     return (
                       <td key={idx} className="px-1 py-2 text-right text-xs text-gray-700">
                         {totalScore.toLocaleString()}
@@ -268,9 +411,20 @@ const GameResultsTable = ({
                   <td className="px-2 py-2 text-center text-xs font-medium text-gray-900">ボーナス</td>
                   {Array.isArray(players) && players.map((p, idx) => {
                     const name = p?.trim();
-                    const bonus = name && currentGroup?.finalStats?.[name]
-                      ? currentGroup.finalStats[name].chipBonus || 0
-                      : 0;
+                    let bonus = 0;
+                    
+                    if (name && calculatedStats[name]) {
+                      bonus = calculatedStats[name].chipBonus;
+                    } else if (name && currentGroup?.finalStats?.[name]) {
+                      bonus = currentGroup.finalStats[name].chipBonus || 0;
+                    } else {
+                      // 直接計算
+                      const rankKey = `rank${idx + 1}`;
+                      const distribution = Number(currentGroup.settings?.chipDistribution) || 300;
+                      const chipValue = chipRow[rankKey];
+                      bonus = calculateChipBonus(chipValue, distribution);
+                    }
+                    
                     return (
                       <td key={idx} className="px-1 py-2 text-right text-xs font-medium text-indigo-600">
                         {bonus.toLocaleString()}
@@ -280,17 +434,40 @@ const GameResultsTable = ({
                   <td className="px-1 py-2"></td>
                 </tr>
 
-                {/* 最終結果行：半荘結果合計 + チップボーナス */}
+                {/* 最終結果行 */}
                 <tr className="bg-indigo-100">
                   <td className="px-2 py-2 text-center text-xs font-bold text-gray-900">最終結果</td>
                   {Array.isArray(players) && players.map((p, idx) => {
                     const name = p?.trim();
-                    const finalStats = name && currentGroup?.finalStats?.[name]
-                      ? currentGroup.finalStats[name]
-                      : { finalResult: 0, chipBonus: 0, halfResult: 0 };
+                    let finalResult = 0;
+                    
+                    if (name && calculatedStats[name]) {
+                      finalResult = calculatedStats[name].halfResult;
+                    } else if (name && currentGroup?.finalStats?.[name]) {
+                      finalResult = currentGroup.finalStats[name].halfResult || 0;
+                    } else {
+                      // 直接計算
+                      const rankKey = `rank${idx + 1}`;
+                      let totalScore = 0;
+                      
+                      if (Array.isArray(currentGroup.games)) {
+                        currentGroup.games.forEach(game => {
+                          if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
+                            totalScore += game.finalScores[rankKey];
+                          }
+                        });
+                      }
+                      
+                      const distribution = Number(currentGroup.settings?.chipDistribution) || 300;
+                      const chipValue = chipRow[rankKey];
+                      const bonus = calculateChipBonus(chipValue, distribution);
+                      
+                      finalResult = totalScore + bonus;
+                    }
+                    
                     return (
                       <td key={idx} className="px-1 py-2 text-right text-xs font-bold text-gray-900">
-                        {(finalStats.halfResult || 0).toLocaleString()}
+                        {finalResult.toLocaleString()}
                       </td>
                     );
                   })}

@@ -1,7 +1,7 @@
 // src/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
@@ -20,135 +20,352 @@ const GroupDetail = ({
   rankPointOption, setRankPointOption,
   currentGameScore, setCurrentGameScore,
   chipRow, setChipRow,
-  updateGroupInFirebase, navigate
+  navigate
 }) => {
+  const [isSaving, setIsSaving] = useState(false);
   
-// addGameScore 関数の修正部分
-const addGameScore = () => {
-  const { rank1, rank2, rank3, rank4 } = currentGameScore;
-  if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) return;
-
-  // 現在のグループの順位点設定を取得
-  const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
-
-  // 持ち点から最終スコアを計算 - ここで正しい rankPoints を渡す
-  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
-  const finalScores = {
-    rank1: finalScoresObj[0],
-    rank2: finalScoresObj[1],
-    rank3: finalScoresObj[2],
-    rank4: finalScoresObj[3]
-  };
-
-  const newGame = {
-    id: Date.now(),
-    createdAt: new Date().toISOString(),
-    inputScores: {
-      rank1: Number(rank1),
-      rank2: Number(rank2),
-      rank3: Number(rank3),
-      rank4: Number(rank4)
-    },
-    finalScores
-  };
-
-  // 順位回数を更新
-  const updatedRankingCounts = { ...currentGroup.rankingCounts } || {};
-
-  // プレイヤーと最終スコアをマッピングした配列を作成
-  const sortedPlayers = Object.keys(finalScores)
-    .map((key, index) => ({
-      player: players[index],
-      score: finalScores[key]
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  // 得点に基づいて順位を決定し、rankingCounts を更新
-  sortedPlayers.forEach((player, index) => {
-    if (!player.player || !player.player.trim()) return; // 空のプレイヤー名はスキップ
-    
-    if (!updatedRankingCounts[player.player]) {
-      updatedRankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+  // ログ出力機能
+  const logStatus = (message, data = null) => {
+    console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+    if (data) {
+      console.log(data);
     }
-    updatedRankingCounts[player.player][`${index + 1}位`] += 1;
-  });
-
-  // グループ更新
-  const updatedGroup = {
-    ...currentGroup,
-    games: [...currentGroup.games, newGame],
-    rankingCounts: updatedRankingCounts
   };
+  
+  // データをFirestoreに保存
+  const saveToFirestore = async (dataToSave, message = null) => {
+    if (!dataToSave || !dataToSave.docId) {
+      logStatus("保存対象のデータが無効です");
+      return false;
+    }
+    
+    try {
+      const docId = dataToSave.docId;
+      const docRef = doc(db, "groups", docId);
+      
+      // docIdはFirestoreのフィールドとしては保存しない
+      const { docId: _, ...cleanData } = dataToSave;
+      
+      // 整合性チェックと統計再計算
+      if (!Array.isArray(cleanData.games)) {
+        cleanData.games = [];
+      }
+      
+      cleanData.finalStats = recalcFinalStats(cleanData);
+      cleanData.lastUpdated = new Date().toISOString();
+      
+      logStatus("Firestoreに保存:", {
+        docId,
+        gamesLength: cleanData.games.length,
+        finalStats: cleanData.finalStats
+      });
+      
+      // setDocを使用して全データを上書き保存、mergeなし
+      await setDoc(docRef, cleanData);
+      
+      if (message) {
+        window.alert(message);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Firestore保存エラー:", error);
+      window.alert("データの保存中にエラーが発生しました: " + error.message);
+      return false;
+    }
+  };
+  
+ // 半荘結果追加時に自動的に保存
+ const addGameScore = async () => {
+  // 1. 入力バリデーション
+  const { rank1, rank2, rank3, rank4 } = currentGameScore;
+  if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) {
+    window.alert('すべてのプレイヤーのスコアを入力してください');
+    return;
+  }
 
-  // 再集計
-  updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+  setIsSaving(true);
+  
+  try {
+    console.log("半荘結果追加開始...");
+    console.log("現在のゲーム数:", currentGroup.games?.length || 0);
+    console.log("入力値:", currentGameScore);
+    
+    // 2. 順位点設定を取得
+    const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
+    
+    // 3. 最終スコア計算
+    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
+    const finalScores = {
+      rank1: finalScoresObj[0],
+      rank2: finalScoresObj[1],
+      rank3: finalScoresObj[2],
+      rank4: finalScoresObj[3]
+    };
+    console.log("計算した最終スコア:", finalScores);
+    
+    // 4. 新しいゲームを作成
+    const newGame = {
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      inputScores: {
+        rank1: Number(rank1),
+        rank2: Number(rank2),
+        rank3: Number(rank3),
+        rank4: Number(rank4)
+      },
+      finalScores
+    };
+    
+    // 5. グループデータの完全なディープコピーを作成
+    const updatedGroup = JSON.parse(JSON.stringify(currentGroup));
+    
+    // 6. games配列が存在することを確認
+    if (!Array.isArray(updatedGroup.games)) {
+      updatedGroup.games = [];
+    }
+    
+    // 7. 新しいゲームを追加
+    updatedGroup.games.push(newGame);
+    console.log("更新後のゲーム数:", updatedGroup.games.length);
 
-  // state & Firestore に反映
-  setCurrentGroup(updatedGroup);
-  setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-  updateGroupInFirebase(updatedGroup);
+    // 8. 順位回数を更新
+    updatedGroup.rankingCounts = updatedGroup.rankingCounts || {};
 
-  // 入力欄クリア
-  setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+    // プレイヤーと最終スコアをマッピングした配列を作成
+    const sortedPlayers = Object.keys(finalScores)
+      .map((key, index) => ({
+        player: players[index],
+        score: finalScores[key]
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    // 得点に基づいて順位を決定し、rankingCounts を更新
+    sortedPlayers.forEach((player, index) => {
+      if (!player.player || !player.player.trim()) return; // 空のプレイヤー名はスキップ
+      
+      if (!updatedGroup.rankingCounts[player.player]) {
+        updatedGroup.rankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+      }
+      updatedGroup.rankingCounts[player.player][`${index + 1}位`] += 1;
+    });
+    
+    // 9. 最終統計を再計算
+    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+    console.log("再計算された統計:", updatedGroup.finalStats);
+    
+    // 10. ドキュメントの保存準備
+    const docId = updatedGroup.docId;
+    const docRef = doc(db, "groups", docId);
+    
+    // 11. docId を除外したデータを保存用に準備
+    const { docId: _, ...dataToSave } = updatedGroup;
+    
+    // 12. 保存を実行
+    console.log("Firestoreに保存開始:", docId);
+    await setDoc(docRef, dataToSave);
+    console.log("Firestoreへの保存完了");
+    
+    // 13. クライアント側の状態を更新
+    setCurrentGroup(updatedGroup);
+    setGroups(prev => prev.map(g => g.docId === docId ? updatedGroup : g));
+    
+    // 14. 入力欄をクリア
+    setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
+    
+    window.alert("半荘結果を保存しました！");
+  } catch (error) {
+    console.error("半荘結果保存エラー:", error);
+    window.alert("保存中にエラーが発生しました: " + error.message);
+  } finally {
+    setIsSaving(false);
+  }
 };
 
-  // ゲーム結果を編集
-  const handleEditGameScore = (gameId, rankKey, newValue) => {
-    const updatedGames = currentGroup.games.map(game => {
-      if (game.id === gameId) {
-        return {
-          ...game,
-          finalScores: {
-            ...game.finalScores,
-            [rankKey]: Number(newValue)
-          }
-        };
+  // ゲーム結果を編集 - 自動保存機能を追加
+  const handleEditGameScore = async (gameId, rankKey, newValue) => {
+    if (!currentGroup) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // グループデータのディープコピーを作成
+      const updatedGroup = JSON.parse(JSON.stringify(currentGroup));
+      
+      // games配列が存在することを確認
+      if (!Array.isArray(updatedGroup.games)) {
+        updatedGroup.games = [];
+        logStatus("games配列が存在しないため初期化しました");
+        return;
       }
-      return game;
-    });
-
-    const updatedGroup = {
-      ...currentGroup,
-      games: updatedGames
-    };
-    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-    updateGroupInFirebase(updatedGroup);
-  };
-
-  // ゲーム削除
-  const handleDeleteGame = (gameId) => {
-    const updatedGames = currentGroup.games.filter(game => game.id !== gameId);
-    const updatedGroup = { ...currentGroup, games: updatedGames };
-    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-    updateGroupInFirebase(updatedGroup);
-  };
-
-  // チップ入力変更
-  const handleChipChange = (rankKey, newValue) => {
-    // ローカル state を更新
-    setChipRow({ ...chipRow, [rankKey]: newValue });
-
-    // グループにも反映
-    const updatedGroup = { ...currentGroup };
-    if (!updatedGroup.chipRow) {
-      updatedGroup.chipRow = {};
+      
+      // 該当するゲームを更新
+      const updatedGames = updatedGroup.games.map(game => {
+        if (game.id === gameId) {
+          return {
+            ...game,
+            finalScores: {
+              ...game.finalScores,
+              [rankKey]: Number(newValue)
+            }
+          };
+        }
+        return game;
+      });
+      
+      updatedGroup.games = updatedGames;
+      
+      // 最終統計を再計算
+      updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+      
+      // Firestoreに保存
+      const { docId: _, ...dataToSave } = updatedGroup;
+      const docRef = doc(db, "groups", updatedGroup.docId);
+      
+      await setDoc(docRef, dataToSave);
+      
+      // 状態を最新データで更新
+      setCurrentGroup(updatedGroup);
+      setGroups(prev => prev.map(g => g.docId === updatedGroup.docId ? updatedGroup : g));
+    } catch (error) {
+      console.error("ゲーム編集エラー:", error);
+      window.alert("編集中にエラーが発生しました: " + error.message);
+    } finally {
+      setIsSaving(false);
     }
-    updatedGroup.chipRow[rankKey] = newValue;
-
-    // 再集計
-    updatedGroup.finalStats = recalcFinalStats(updatedGroup);
-
-    // state & DB を更新
-    setCurrentGroup(updatedGroup);
-    setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
-    updateGroupInFirebase(updatedGroup);
   };
+
+  // ゲーム削除 - 自動保存機能を追加
+  const handleDeleteGame = async (gameId) => {
+    if (!window.confirm("このゲームを削除してもよろしいですか？")) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // グループデータのディープコピーを作成
+      const updatedGroup = JSON.parse(JSON.stringify(currentGroup));
+      
+      // games配列が存在することを確認
+      if (!Array.isArray(updatedGroup.games)) {
+        updatedGroup.games = [];
+        logStatus("games配列が存在しないため初期化しました");
+        return;
+      }
+      
+      // 該当するゲームを削除
+      updatedGroup.games = updatedGroup.games.filter(game => game.id !== gameId);
+      
+      // 順位カウントを再計算
+      updatedGroup.rankingCounts = {};
+      
+      // 全プレイヤーの順位を初期化
+      players.forEach(player => {
+        if (player && player.trim()) {
+          updatedGroup.rankingCounts[player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+        }
+      });
+      
+      // 残りのゲームから順位を再集計
+      updatedGroup.games.forEach(game => {
+        const sortedPlayers = Object.keys(game.finalScores)
+          .map((key, index) => ({
+            player: players[index],
+            score: game.finalScores[key]
+          }))
+          .sort((a, b) => b.score - a.score);
+          
+        sortedPlayers.forEach((player, index) => {
+          if (!player.player || !player.player.trim()) return;
+          if (!updatedGroup.rankingCounts[player.player]) {
+            updatedGroup.rankingCounts[player.player] = { "1位": 0, "2位": 0, "3位": 0, "4位": 0 };
+          }
+          updatedGroup.rankingCounts[player.player][`${index + 1}位`] += 1;
+        });
+      });
+      
+      // 最終統計を再計算
+      updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+      
+      // Firestoreに保存
+      const { docId: _, ...dataToSave } = updatedGroup;
+      const docRef = doc(db, "groups", updatedGroup.docId);
+      
+      await setDoc(docRef, dataToSave);
+      
+      // 状態を最新データで更新
+      setCurrentGroup(updatedGroup);
+      setGroups(prev => prev.map(g => g.docId === updatedGroup.docId ? updatedGroup : g));
+      
+      window.alert("ゲームを削除しました");
+    } catch (error) {
+      console.error("ゲーム削除エラー:", error);
+      window.alert("削除中にエラーが発生しました: " + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // チップ入力変更 - 自動保存機能を追加
+  const handleChipChange = async (rankKey, newValue) => {
+    try {
+      // ローカルの状態を更新
+      const updatedChipRow = { ...chipRow, [rankKey]: newValue };
+      setChipRow(updatedChipRow);
+      
+      // グループデータのディープコピーを作成
+      const updatedGroup = JSON.parse(JSON.stringify(currentGroup));
+      updatedGroup.chipRow = updatedChipRow;
+      
+      // 統計を更新
+      updatedGroup.finalStats = recalcFinalStats(updatedGroup);
+      
+      // 状態を更新
+      setCurrentGroup(updatedGroup);
+      setGroups(groups.map(g => (g.id === currentGroup.id ? updatedGroup : g)));
+      
+      // チップが変更された場合にもFirestoreに自動保存
+      const { docId: _, ...dataToSave } = updatedGroup;
+      const docRef = doc(db, "groups", updatedGroup.docId);
+      
+      await setDoc(docRef, dataToSave);
+    } catch (error) {
+      console.error("チップ更新エラー:", error);
+    }
+  };
+
+  // コンポーネントがマウントされたときにデータを読み込み
+  useEffect(() => {
+    if (currentGroup && currentGroup.docId) {
+      try {
+        const docRef = doc(db, "groups", currentGroup.docId);
+        getDoc(docRef).then(docSnap => {
+          if (docSnap.exists()) {
+            const freshData = { ...docSnap.data(), docId: currentGroup.docId };
+            
+            // 整合性チェック
+            if (!Array.isArray(freshData.games)) {
+              freshData.games = [];
+            }
+            
+            if (!freshData.players) {
+              freshData.players = currentGroup.players || ['', '', '', ''];
+            }
+            
+            // 統計を再計算して常に最新の計算結果を使用
+            freshData.finalStats = recalcFinalStats(freshData);
+            
+            // 状態を更新
+            setCurrentGroup(freshData);
+            setGroups(prev => prev.map(g => g.docId === freshData.docId ? freshData : g));
+            setPlayers(freshData.players || ['', '', '', '']);
+            setChipRow(freshData.chipRow || {});
+          }
+        });
+      } catch (error) {
+        console.error("初期データ読み込みエラー:", error);
+      }
+    }
+  }, []);
 
   if (!currentGroup) return <div>Loading...</div>;
 
@@ -186,7 +403,7 @@ const addGameScore = () => {
           setCurrentGroup={setCurrentGroup}
           groups={groups}
           setGroups={setGroups}
-          updateGroupInFirebase={updateGroupInFirebase}
+          updateGroupInFirebase={saveToFirestore}
         />
         
         <ChipSettings 
@@ -198,7 +415,7 @@ const addGameScore = () => {
           setCurrentGroup={setCurrentGroup}
           groups={groups}
           setGroups={setGroups}
-          updateGroupInFirebase={updateGroupInFirebase}
+          updateGroupInFirebase={saveToFirestore}
         />
         
         <GameInputForm 
@@ -206,6 +423,7 @@ const addGameScore = () => {
           currentGameScore={currentGameScore}
           setCurrentGameScore={setCurrentGameScore}
           addGameScore={addGameScore}
+          isSaving={isSaving}
         />
         
         <GameResultsTable 
@@ -221,7 +439,7 @@ const addGameScore = () => {
   );
 };
 
-// メインのDashboardコンポーネント
+// Dashboardコンポーネントのメインエントリーポイント
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -318,25 +536,65 @@ const Dashboard = () => {
         
         // URLのグループIDがある場合、該当グループをセット
         if (groupId) {
-          const foundGroup = groupsData.find(g => 
-            String(g.id) === String(groupId) || 
-            g.docId === groupId
-          );
+          console.log("グループID検索開始:", groupId);
+          
+          const foundGroup = groupsData.find(g => {
+            return String(g.id) === String(groupId) || g.docId === groupId;
+          });
           
           if (foundGroup) {
-            setCurrentGroup(foundGroup);
-            setPlayers(foundGroup.players || ['', '', '', '']);
-            setChipRow(foundGroup.chipRow || {
-              rank1: '',
-              rank2: '',
-              rank3: '',
-              rank4: ''
-            });
-            setBasicDate(foundGroup.date || '');
-            setChipDistribution(foundGroup.settings?.chipDistribution || '');
-            setRankPointOption(foundGroup.settings?.rankPointOption || '10-30');
+            console.log("グループを発見:", foundGroup);
+            
+            // 最新データをFirestoreから直接取得
+            try {
+              const docRef = doc(db, "groups", foundGroup.docId);
+              const docSnap = await getDoc(docRef);
+              
+              if (docSnap.exists()) {
+                const latestData = { ...docSnap.data(), docId: foundGroup.docId };
+                console.log("Firestoreから最新データを取得:", latestData);
+                
+                // games配列の整合性確認
+                if (!Array.isArray(latestData.games)) {
+                  latestData.games = [];
+                  console.log("games配列が存在しないため初期化");
+                }
+                
+                // 統計を再計算して常に最新の計算結果を使用
+                latestData.finalStats = recalcFinalStats(latestData);
+                
+                // データを設定
+                setCurrentGroup(latestData);
+                setPlayers(latestData.players || ['', '', '', '']);
+                setChipRow(latestData.chipRow || {});
+                setBasicDate(latestData.date || '');
+                setChipDistribution(latestData.settings?.chipDistribution || '');
+                setRankPointOption(latestData.settings?.rankPointOption || '10-30');
+              } else {
+                console.log("Firestoreにドキュメントがありません。検索結果を使用します");
+                
+                // Firestoreにデータがない場合は検索結果を使用
+                setCurrentGroup(foundGroup);
+                setPlayers(foundGroup.players || ['', '', '', '']);
+                setChipRow(foundGroup.chipRow || {});
+                setBasicDate(foundGroup.date || '');
+                setChipDistribution(foundGroup.settings?.chipDistribution || '');
+                setRankPointOption(foundGroup.settings?.rankPointOption || '10-30');
+              }
+            } catch (error) {
+              console.error("Firestoreからのデータ取得エラー:", error);
+              
+              // エラー時は検索結果を使用
+              setCurrentGroup(foundGroup);
+              setPlayers(foundGroup.players || ['', '', '', '']);
+              setChipRow(foundGroup.chipRow || {});
+              setBasicDate(foundGroup.date || '');
+              setChipDistribution(foundGroup.settings?.chipDistribution || '');
+              setRankPointOption(foundGroup.settings?.rankPointOption || '10-30');
+            }
           } else {
             console.log(`グループID: ${groupId} が見つかりません。`);
+            
             // グループが見つからない場合は、トップページにリダイレクト
             if (!isAnalysisPath) {
               navigate('/');
@@ -356,50 +614,6 @@ const Dashboard = () => {
   
     fetchGroups();
   }, [user, groupId, navigate, location.pathname]);
-
-  // ========== Functions ==========
-
-// src/Dashboard.jsx の updateGroupInFirebase 関数を修正
-
-const updateGroupInFirebase = async (groupData) => {
-  if (!user) return;
-  
-  try {
-    const docId = groupData.docId || String(groupData.id);
-    const docRef = doc(db, "groups", docId);
-    
-    // docIdはFirestoreのフィールドとしては保存しない
-    const { docId: _, ...dataToSave } = groupData;
-    
-    // 現在のUnixタイムスタンプを追加して、更新日時を記録
-    const updatedData = {
-      ...dataToSave,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    console.log("Firestoreに保存中:", docId, updatedData);
-    
-    // 更新前に再計算を実行して確実に最新データを保存
-    if (updatedData.games && Array.isArray(updatedData.games)) {
-      updatedData.finalStats = recalcFinalStats(updatedData);
-    }
-    
-    // Firestoreに保存
-    await updateDoc(docRef, updatedData);
-    console.log("グループ更新完了:", groupData.id);
-    
-    // ローカルステートも更新
-    const updatedGroups = groups.map(g => 
-      (g.id === groupData.id) ? { ...updatedData, docId } : g
-    );
-    setGroups(updatedGroups);
-    
-    return true;
-  } catch (error) {
-    console.error("グループ更新エラー:", error);
-    return false;
-  }
-};
 
   // ローディング中の表示
   if (loading) {
@@ -451,7 +665,6 @@ const updateGroupInFirebase = async (groupData) => {
           setCurrentGameScore={setCurrentGameScore}
           chipRow={chipRow}
           setChipRow={setChipRow}
-          updateGroupInFirebase={updateGroupInFirebase}
           navigate={navigate}
         />
       );
