@@ -1,22 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import RankingTable from './RankingTable.jsx';
 
-// テスト用の埋め込み計算ヘルパー
-const calculateTotalScore = (games, playerIndex) => {
-  if (!Array.isArray(games)) return 0;
-  
-  let total = 0;
-  const rankKey = `rank${playerIndex + 1}`;
-  
-  games.forEach(game => {
-    if (game?.finalScores && typeof game.finalScores[rankKey] === 'number') {
-      total += game.finalScores[rankKey];
-    }
-  });
-  
-  return total;
-};
-
 const calculateChipBonus = (chipValue, distribution) => {
   const chipInput = chipValue !== undefined && chipValue !== '' 
     ? Number(chipValue) 
