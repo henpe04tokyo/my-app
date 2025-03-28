@@ -365,7 +365,7 @@ const GroupDetail = ({
         console.error("初期データ読み込みエラー:", error);
       }
     }
-  }, []);
+  }, [currentGroup, setCurrentGroup, setGroups, setPlayers, setChipRow]); // 依存配列を追加
 
   if (!currentGroup) return <div>Loading...</div>;
 
