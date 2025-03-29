@@ -77,6 +77,10 @@ const GameResultsTable = ({
   const safelyHandleEditGameScore = (gameId, rankKey, newValue) => {
     try {
       if (handleEditGameScore) {
+        // 空文字列の場合は "0" に変換して渡す
+        if (newValue === '') {
+          newValue = "0";
+        }
         handleEditGameScore(gameId, rankKey, newValue);
       }
     } catch (error) {
@@ -157,7 +161,7 @@ const GameResultsTable = ({
                     <td key={r} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-500">
                       <input
                         type="number"
-                        value={game?.finalScores?.[r] || ''}
+                        value={game?.finalScores?.[r] !== undefined ? game.finalScores[r] : ''}
                         onChange={(e) => safelyHandleEditGameScore(game?.id, r, e.target.value)}
                         className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                       />
@@ -180,7 +184,7 @@ const GameResultsTable = ({
                   <td key={r} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-500">
                     <input
                       type="number"
-                      value={chipRow?.[r] || ''}
+                      value={chipRow?.[r] !== undefined ? chipRow[r] : ''}
                       onChange={(e) => safelyHandleChipChange(r, e.target.value)}
                       className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                     />
@@ -324,7 +328,7 @@ const GameResultsTable = ({
                       <td key={r} className="px-1 py-2 text-right text-sm text-gray-500">
                         <input
                           type="number"
-                          value={game?.finalScores?.[r] || ''}
+                          value={game?.finalScores?.[r] !== undefined ? game.finalScores[r] : ''}
                           onChange={(e) => safelyHandleEditGameScore(game?.id, r, e.target.value)}
                           className="w-12 rounded border border-gray-300 px-1 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                         />
@@ -349,7 +353,7 @@ const GameResultsTable = ({
                     <td key={r} className="px-1 py-2 text-right text-sm text-gray-500">
                       <input
                         type="number"
-                        value={chipRow?.[r] || ''}
+                        value={chipRow?.[r] !== undefined ? chipRow[r] : ''}
                         onChange={(e) => safelyHandleChipChange(r, e.target.value)}
                         className="w-12 rounded border border-gray-300 px-1 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                       />

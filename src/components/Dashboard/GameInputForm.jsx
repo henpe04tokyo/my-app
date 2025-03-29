@@ -44,8 +44,8 @@ const GameInputForm = ({
   const safeUpdateScore = (rankKey, value) => {
     try {
       if (setCurrentGameScore && currentGameScore) {
-        // 数値のみ許可
-        const numericValue = value.replace(/[^0-9]/g, '');
+        // マイナス記号と数字のみ許可
+        const numericValue = value.replace(/[^0-9-]/g, '');
         
         setCurrentGameScore({
           ...currentGameScore,
@@ -68,8 +68,6 @@ const GameInputForm = ({
       errors[rankKey] = '入力必須';
     } else if (isNaN(Number(value))) {
       errors[rankKey] = '数値のみ';
-    } else if (Number(value) < 0) {
-      errors[rankKey] = '正の値のみ';
     } else {
       delete errors[rankKey];
     }
@@ -125,10 +123,9 @@ const GameInputForm = ({
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   value={currentGameScore ? currentGameScore[rankKey] || '' : ''}
                   onChange={(e) => safeUpdateScore(rankKey, e.target.value)}
-                  placeholder="例: 60000"
+                  placeholder="例: 30000 "
                   className={`mt-1 block w-full rounded-md border ${
                     validationErrors[rankKey] ? 'border-red-300' : 'border-gray-300'
                   } px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
