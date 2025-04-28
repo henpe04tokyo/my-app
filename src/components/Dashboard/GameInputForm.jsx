@@ -109,6 +109,28 @@ const GameInputForm = ({
       console.error("Add game score error:", error);
     }
   };
+  
+  // マイナス記号をトグルするヘルパー関数
+  const toggleMinus = (rankKey) => {
+    try {
+      if (setCurrentGameScore && currentGameScore) {
+        const currentValue = currentGameScore[rankKey] || '';
+        const isNegative = currentValue.startsWith('-');
+        
+        // マイナス記号の切り替え
+        const newValue = isNegative 
+          ? currentValue.substring(1) // マイナス記号を削除
+          : `-${currentValue}`; // マイナス記号を追加
+        
+        setCurrentGameScore({
+          ...currentGameScore,
+          [rankKey]: newValue
+        });
+      }
+    } catch (error) {
+      console.error("Toggle minus error:", error);
+    }
+  };
 
   return (
     <div className="rounded-lg bg-white p-6 shadow-md">
