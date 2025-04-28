@@ -140,19 +140,28 @@ const GameInputForm = ({
           const rankKey = `rank${index + 1}`;
           return (
             <div key={index}>
-              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700">
                 {(p && p.trim()) ? `${p}の持ち点` : `プレイヤー${index + 1}の持ち点`}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={currentGameScore ? currentGameScore[rankKey] || '' : ''}
-                  onChange={(e) => safeUpdateScore(rankKey, e.target.value)}
-                  placeholder="例: 30000 "
-                  className={`mt-1 block w-full rounded-md border ${
-                    validationErrors[rankKey] ? 'border-red-300' : 'border-gray-300'
-                  } px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
-                  required
-                />
+                <div className="flex mt-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={currentGameScore ? currentGameScore[rankKey] || '' : ''}
+                    onChange={(e) => safeUpdateScore(rankKey, e.target.value)}
+                    placeholder="例: 30000 "
+                    className={`block w-full rounded-l-md border ${
+                      validationErrors[rankKey] ? 'border-red-300' : 'border-gray-300'
+                    } px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleMinus(rankKey)}
+                    className="inline-flex items-center justify-center rounded-r-md border border-l-0 border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    ±
+                  </button>
+                </div>
                 {validationErrors[rankKey] && (
                   <p className="mt-1 text-xs text-red-600">
                     {validationErrors[rankKey]}
