@@ -253,7 +253,7 @@ const handleEditGameScore = (gameId, rankKey, newValue) => {
         ...game,
         finalScores: {
           ...game.finalScores,
-          [rankKey]: newValue === '' ? 0 : Number(newValue)
+          [rankKey]: newValue === '' || newValue === undefined ? '' : Number(newValue)
         }
       };
     }
