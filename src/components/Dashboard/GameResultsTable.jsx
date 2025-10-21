@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import RankingTable from './RankingTable.jsx';
 
 const calculateChipBonus = (chipValue, distribution) => {
@@ -20,9 +20,6 @@ const GameResultsTable = ({
   // モバイルビューで表示しているプレイヤーのインデックス
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [calculatedStats, setCalculatedStats] = useState({});
-  
-  // デバウンス用のタイマー
-  const debounceTimers = useRef({});
   
   // デバッグログとインラインでの緊急計算
   useEffect(() => {
