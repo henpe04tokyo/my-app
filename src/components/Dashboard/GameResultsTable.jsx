@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import RankingTable from './RankingTable.jsx';
 
 const calculateChipBonus = (chipValue, distribution) => {
@@ -20,6 +20,9 @@ const GameResultsTable = ({
   // モバイルビューで表示しているプレイヤーのインデックス
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [calculatedStats, setCalculatedStats] = useState({});
+  
+  // デバウンス用のタイマー
+  const debounceTimers = useRef({});
   
   // デバッグログとインラインでの緊急計算
   useEffect(() => {
@@ -73,15 +76,23 @@ const GameResultsTable = ({
     }
   }, [currentGroup, players, chipRow]);
   
-  // 安全な操作のためのヘルパー関数
+  // UI即座反映 + デバウンス付きデータベース保存
   const safelyHandleEditGameScore = (gameId, rankKey, newValue) => {
     try {
       if (handleEditGameScore) {
-        // 空文字列の場合は "0" に変換して渡す
-        if (newValue === '') {
-          newValue = "0";
+        // 既存のタイマーをクリア
+        const timerKey = `${gameId}-${rankKey}`;
+        if (debounceTimers.current[timerKey]) {
+          clearTimeout(debounceTimers.current[timerKey]);
         }
-        handleEditGameScore(gameId, rankKey, newValue);
+        
+        // UIは即座に反映（ローカル状態更新）
+        handleEditGameScore(gameId, rankKey, newValue, { immediate: true });
+        
+        // データベース保存は500ms後に実行
+        debounceTimers.current[timerKey] = setTimeout(() => {
+          handleEditGameScore(gameId, rankKey, newValue, { immediate: false });
+        }, 500);
       }
     } catch (error) {
       console.error("Edit game score error:", error);
@@ -163,6 +174,7 @@ const GameResultsTable = ({
                         type="number"
                         value={game?.finalScores?.[r] !== undefined ? game.finalScores[r] : ''}
                         onChange={(e) => safelyHandleEditGameScore(game?.id, r, e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                       />
                     </td>
@@ -330,7 +342,8 @@ const GameResultsTable = ({
                           type="number"
                           value={game?.finalScores?.[r] !== undefined ? game.finalScores[r] : ''}
                           onChange={(e) => safelyHandleEditGameScore(game?.id, r, e.target.value)}
-                          className="w-12 rounded border border-gray-300 px-1 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                          onFocus={(e) => e.target.select()}
+                          className="w-16 rounded border border-gray-300 px-2 py-2 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                         />
                       </td>
                     ))}
