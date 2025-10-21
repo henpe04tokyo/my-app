@@ -76,23 +76,11 @@ const GameResultsTable = ({
     }
   }, [currentGroup, players, chipRow]);
   
-  // UI即座反映 + デバウンス付きデータベース保存
+  // シンプルな編集処理（デバウンスなし）
   const safelyHandleEditGameScore = (gameId, rankKey, newValue) => {
     try {
       if (handleEditGameScore) {
-        // 既存のタイマーをクリア
-        const timerKey = `${gameId}-${rankKey}`;
-        if (debounceTimers.current[timerKey]) {
-          clearTimeout(debounceTimers.current[timerKey]);
-        }
-        
-        // UIは即座に反映（ローカル状態更新）
-        handleEditGameScore(gameId, rankKey, newValue, { immediate: true });
-        
-        // データベース保存は500ms後に実行
-        debounceTimers.current[timerKey] = setTimeout(() => {
-          handleEditGameScore(gameId, rankKey, newValue, { immediate: false });
-        }, 500);
+        handleEditGameScore(gameId, rankKey, newValue);
       }
     } catch (error) {
       console.error("Edit game score error:", error);

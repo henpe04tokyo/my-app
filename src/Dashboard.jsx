@@ -182,11 +182,11 @@ const GroupDetail = ({
   }
 };
 
-  // ゲーム結果を編集 - UI即座反映 + デバウンス付きデータベース保存
-  const handleEditGameScore = async (gameId, rankKey, newValue, options = {}) => {
+  // ゲーム結果を編集 - シンプルな実装
+  const handleEditGameScore = async (gameId, rankKey, newValue) => {
     if (!currentGroup) return;
     
-    const { immediate = false } = options;
+    setIsSaving(true);
     
     try {
       // グループデータのディープコピーを作成
@@ -222,26 +222,16 @@ const GroupDetail = ({
       setCurrentGroup(updatedGroup);
       setGroups(prev => prev.map(g => g.docId === updatedGroup.docId ? updatedGroup : g));
       
-      // データベース保存は即座実行しない場合のみ
-      if (!immediate) {
-        setIsSaving(true);
-        
-        try {
-          // Firestoreに保存
-          const { docId: _, ...dataToSave } = updatedGroup;
-          const docRef = doc(db, "groups", updatedGroup.docId);
-          
-          await setDoc(docRef, dataToSave);
-        } catch (error) {
-          console.error("ゲーム編集エラー:", error);
-          window.alert("編集中にエラーが発生しました: " + error.message);
-        } finally {
-          setIsSaving(false);
-        }
-      }
+      // Firestoreに保存
+      const { docId: _, ...dataToSave } = updatedGroup;
+      const docRef = doc(db, "groups", updatedGroup.docId);
+      
+      await setDoc(docRef, dataToSave);
     } catch (error) {
       console.error("ゲーム編集エラー:", error);
       window.alert("編集中にエラーが発生しました: " + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
