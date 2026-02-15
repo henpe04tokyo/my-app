@@ -76,12 +76,12 @@ const GroupDetail = ({
   };
   
  // 半荘結果追加時に自動的に保存
- const addGameScore = async () => {
+ const addGameScore = async (tobiBonuses = []) => {
   // 1. 入力バリデーション
   const { rank1, rank2, rank3, rank4 } = currentGameScore;
   if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) {
     window.alert('すべてのプレイヤーのスコアを入力してください');
-    return;
+    return false;
   }
 
   setIsSaving(true);
@@ -90,53 +90,105 @@ const GroupDetail = ({
     console.log("半荘結果追加開始...");
     console.log("現在のゲーム数:", currentGroup.games?.length || 0);
     console.log("入力値:", currentGameScore);
+    console.log("飛び賞入力:", tobiBonuses);
     
     // 2. 順位点設定を取得
     const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
-    
-    // 3. 最終スコア計算
-    const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
-    const finalScores = {
-      rank1: finalScoresObj[0],
-      rank2: finalScoresObj[1],
-      rank3: finalScoresObj[2],
-      rank4: finalScoresObj[3]
+
+    // 3. 生の持ち点（飛び賞未反映）
+    const rawInputScores = {
+      rank1: Number(rank1),
+      rank2: Number(rank2),
+      rank3: Number(rank3),
+      rank4: Number(rank4)
     };
-    console.log("計算した最終スコア:", finalScores);
+
+    const normalizedTobiBonuses = [];
+
+    (Array.isArray(tobiBonuses) ? tobiBonuses : []).forEach((bonus) => {
+      const fromIndex = Number(bonus.fromIndex);
+      const toIndex = Number(bonus.toIndex);
+      const amount = Number(bonus.amount);
+
+      if (
+        Number.isNaN(fromIndex) ||
+        Number.isNaN(toIndex) ||
+        Number.isNaN(amount) ||
+        fromIndex < 0 ||
+        fromIndex > 3 ||
+        toIndex < 0 ||
+        toIndex > 3 ||
+        fromIndex === toIndex ||
+        amount < 10 ||
+        amount > 90 ||
+        amount % 10 !== 0
+      ) {
+        return;
+      }
+
+      const points = amount * 1000;
+
+      normalizedTobiBonuses.push({
+        fromIndex,
+        toIndex,
+        fromPlayer: players[fromIndex] || `プレイヤー${fromIndex + 1}`,
+        toPlayer: players[toIndex] || `プレイヤー${toIndex + 1}`,
+        amount,
+        points
+      });
+    });
     
-    // 4. 新しいゲームを作成
+    // 4. 飛び賞を除いた持ち点で順位点を計算
+    const baseFinalScoresObj = calculateFinalScoresFromInputs(rawInputScores, rankPoints);
+    const baseFinalScores = {
+      rank1: baseFinalScoresObj[0],
+      rank2: baseFinalScoresObj[1],
+      rank3: baseFinalScoresObj[2],
+      rank4: baseFinalScoresObj[3]
+    };
+
+    // 5. 飛び賞は順位点計算後に順位点へ加減算
+    const finalScores = { ...baseFinalScores };
+    normalizedTobiBonuses.forEach((bonus) => {
+      const fromKey = `rank${bonus.fromIndex + 1}`;
+      const toKey = `rank${bonus.toIndex + 1}`;
+      finalScores[fromKey] -= bonus.amount;
+      finalScores[toKey] += bonus.amount;
+    });
+    console.log("飛び賞反映前の順位点:", baseFinalScores);
+    console.log("飛び賞反映後の最終スコア:", finalScores);
+    
+    // 6. 新しいゲームを作成
     const newGame = {
       id: Date.now(),
       createdAt: new Date().toISOString(),
-      inputScores: {
-        rank1: Number(rank1),
-        rank2: Number(rank2),
-        rank3: Number(rank3),
-        rank4: Number(rank4)
-      },
+      rawInputScores,
+      inputScores: rawInputScores,
+      tobiBonus: normalizedTobiBonuses,
+      baseFinalScores,
       finalScores
     };
     
-    // 5. グループデータの完全なディープコピーを作成
+    // 7. グループデータの完全なディープコピーを作成
     const updatedGroup = JSON.parse(JSON.stringify(currentGroup));
     
-    // 6. games配列が存在することを確認
+    // 8. games配列が存在することを確認
     if (!Array.isArray(updatedGroup.games)) {
       updatedGroup.games = [];
     }
     
-    // 7. 新しいゲームを追加
+    // 9. 新しいゲームを追加
     updatedGroup.games.push(newGame);
     console.log("更新後のゲーム数:", updatedGroup.games.length);
 
-    // 8. 順位回数を更新
+    // 10. 順位回数を更新（飛び賞反映前の順位点で順位を確定）
     updatedGroup.rankingCounts = updatedGroup.rankingCounts || {};
 
-    // プレイヤーと最終スコアをマッピングした配列を作成
-    const sortedPlayers = Object.keys(finalScores)
+    // プレイヤーと順位点（飛び賞反映前）をマッピングした配列を作成
+    const sortedPlayers = Object.keys(baseFinalScores)
       .map((key, index) => ({
         player: players[index],
-        score: finalScores[key]
+        score: baseFinalScores[key]
       }))
       .sort((a, b) => b.score - a.score);
 
@@ -150,33 +202,35 @@ const GroupDetail = ({
       updatedGroup.rankingCounts[player.player][`${index + 1}位`] += 1;
     });
     
-    // 9. 最終統計を再計算
+    // 11. 最終統計を再計算
     updatedGroup.finalStats = recalcFinalStats(updatedGroup);
     console.log("再計算された統計:", updatedGroup.finalStats);
     
-    // 10. ドキュメントの保存準備
+    // 12. ドキュメントの保存準備
     const docId = updatedGroup.docId;
     const docRef = doc(db, "groups", docId);
     
-    // 11. docId を除外したデータを保存用に準備
+    // 13. docId を除外したデータを保存用に準備
     const { docId: _, ...dataToSave } = updatedGroup;
     
-    // 12. 保存を実行
+    // 14. 保存を実行
     console.log("Firestoreに保存開始:", docId);
     await setDoc(docRef, dataToSave);
     console.log("Firestoreへの保存完了");
     
-    // 13. クライアント側の状態を更新
+    // 15. クライアント側の状態を更新
     setCurrentGroup(updatedGroup);
     setGroups(prev => prev.map(g => g.docId === docId ? updatedGroup : g));
     
-    // 14. 入力欄をクリア
+    // 16. 入力欄をクリア
     setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
     
     window.alert("半荘結果を保存しました！");
+    return true;
   } catch (error) {
     console.error("半荘結果保存エラー:", error);
     window.alert("保存中にエラーが発生しました: " + error.message);
+    return false;
   } finally {
     setIsSaving(false);
   }
