@@ -1,5 +1,5 @@
 // src/Home.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from './firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
@@ -22,6 +22,37 @@ function Home() {
   const [groups, setGroups] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // 削除確認用のステート
+  const [openMonths, setOpenMonths] = useState(new Set()); // アコーディオンで開いている月 (YYYY-MM)
+
+  // グループを月 (YYYY-MM) ごとにまとめる。月は新しい順。
+  const groupsByMonth = useMemo(() => {
+    const byMonth = {};
+    for (const g of groups) {
+      const dateStr = g.date || (g.createdAt || '').slice(0, 10);
+      const monthKey = dateStr.slice(0, 7); // YYYY-MM
+      if (!byMonth[monthKey]) byMonth[monthKey] = [];
+      byMonth[monthKey].push(g);
+    }
+    // 各月内は日付の新しい順（fetchGroups で既にソート済みだが、月で分けたので再ソート）
+    Object.keys(byMonth).forEach(key => {
+      byMonth[key].sort((a, b) => {
+        const dateA = a.date || a.createdAt || '';
+        const dateB = b.date || b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
+    });
+    const sortedMonths = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+    return { byMonth, sortedMonths };
+  }, [groups]);
+
+  const toggleMonth = (monthKey) => {
+    setOpenMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(monthKey)) next.delete(monthKey);
+      else next.add(monthKey);
+      return next;
+    });
+  };
 
   // ユーザー認証を監視
   useEffect(() => {
@@ -50,6 +81,12 @@ function Home() {
         id: doc.id,
         ...doc.data()
       }));
+      // 日付の新しい順（上から新しい順）でソート。date がなければ createdAt を使用
+      data.sort((a, b) => {
+        const dateA = a.date || a.createdAt || '';
+        const dateB = b.date || b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
       setGroups(data);
     } catch (error) {
       console.error("グループ取得エラー:", error);
@@ -176,62 +213,82 @@ function Home() {
           </button>
         </div>
 
-        {/* 既存グループ一覧 - 改良版 */}
+        {/* 既存グループ一覧 - 月ごとアコーディオン */}
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           <h2 className="mb-4 text-xl font-semibold text-gray-800">既存グループ一覧</h2>
           {groups.length === 0 ? (
             <p className="text-gray-500">グループがありません。</p>
           ) : (
-            <ul className="space-y-2">
-              {groups.map((g) => (
-                <li 
-                  key={g.id} 
-                  className="flex items-center justify-between p-3 bg-gray-100 rounded-md hover:bg-gray-200 cursor-pointer transition-colors"
-                  onClick={(e) => {
-                    // 削除ボタンやダイアログからのクリックは無視
-                    if (e.target.closest('.delete-controls')) {
-                      return;
-                    }
-                    navigate(`/dashboard/group/${g.id}`);
-                  }}
-                >
-                  <div className="flex-grow">
-                    <span className="text-lg font-medium text-gray-700 hover:text-indigo-600">
-                      {g.name}
-                    </span>
-                  </div>
-                  
-                  {/* 削除ボタンと確認ダイアログ */}
-                  <div className="delete-controls" onClick={(e) => e.stopPropagation()}>
-                    {deleteConfirmId === g.id ? (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">削除しますか？</span>
-                        <button
-                          onClick={() => confirmDeleteGroup(g.id)}
-                          className="bg-red-600 text-white text-xs px-2 py-1 rounded"
-                        >
-                          はい
-                        </button>
-                        <button
-                          onClick={cancelDelete}
-                          className="bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded"
-                        >
-                          いいえ
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => showDeleteConfirm(g.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="削除"
-                      >
-                        ✕
-                      </button>
+            <div className="space-y-1">
+              {groupsByMonth.sortedMonths.map((monthKey) => {
+                const isOpen = openMonths.has(monthKey);
+                const monthGroups = groupsByMonth.byMonth[monthKey] || [];
+                const [y, m] = monthKey.split('-');
+                const monthLabel = `${y}年${parseInt(m, 10)}月`;
+                return (
+                  <div key={monthKey} className="rounded-md border border-gray-200 overflow-hidden">
+                    {/* 月ヘッダー: タップで開閉 */}
+                    <button
+                      type="button"
+                      onClick={() => toggleMonth(monthKey)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 text-left font-medium text-gray-800 transition-colors"
+                    >
+                      <span>{monthLabel}</span>
+                      <span className="text-gray-500 text-sm">{isOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {/* 開いたときに日付ごとのグループを表示 */}
+                    {isOpen && (
+                      <ul className="border-t border-gray-200 bg-white">
+                        {monthGroups.map((g) => (
+                          <li
+                            key={g.id}
+                            className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            onClick={(e) => {
+                              if (e.target.closest('.delete-controls')) return;
+                              navigate(`/dashboard/group/${g.id}`);
+                            }}
+                          >
+                            <span className="text-gray-700 hover:text-indigo-600">
+                              {g.date || (g.createdAt || '').slice(0, 10) || g.name}
+                            </span>
+                            <div className="delete-controls" onClick={(e) => e.stopPropagation()}>
+                              {deleteConfirmId === g.id ? (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm text-gray-600">削除しますか？</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmDeleteGroup(g.id)}
+                                    className="bg-red-600 text-white text-xs px-2 py-1 rounded"
+                                  >
+                                    はい
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelDelete}
+                                    className="bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded"
+                                  >
+                                    いいえ
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => showDeleteConfirm(g.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="削除"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           )}
         </div>
 
