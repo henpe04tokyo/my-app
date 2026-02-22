@@ -17,6 +17,7 @@ import {
   recalcFinalStats,
   settings
 } from './utils/scoreCalculation';
+import { getTieInfo, buildReorderedInputsFromAssignments } from './utils/tieResolution';
 
 // サブコンポーネントをインポート
 import PlayerSettings from './components/Dashboard/PlayerSettings';
@@ -150,37 +151,59 @@ useEffect(() => {
 
  // GroupDetail.jsx - ハンドルAddGame関数の実装部分
 
-// 半荘結果をFirebaseに追加
-const handleAddGame = () => {
+// 半荘結果をFirebaseに追加（同点時は tieAssignments で順位指定）
+const handleAddGame = (tobiBonuses = [], tieAssignments = null) => {
   // 入力値の検証
   if (!currentGameScore || [currentGameScore.rank1, currentGameScore.rank2, currentGameScore.rank3, currentGameScore.rank4].some(v => v === '')) {
     console.error("スコアが入力されていません");
     return;
   }
 
+  const rawInputScores = {
+    rank1: Number(currentGameScore.rank1),
+    rank2: Number(currentGameScore.rank2),
+    rank3: Number(currentGameScore.rank3),
+    rank4: Number(currentGameScore.rank4)
+  };
+
   // 現在のグループの設定から順位点を取得
   const rankPoints = group.settings?.rankPoints || [0, 10, -10, -30];
   console.log("使用する順位点:", rankPoints); // デバッグ用
 
-  // 持ち点から最終スコアを計算 - 正しい rankPoints を渡す
-  const finalScoresObj = calculateFinalScoresFromInputs(currentGameScore, rankPoints);
-  const finalScores = {
-    rank1: finalScoresObj[0],
-    rank2: finalScoresObj[1],
-    rank3: finalScoresObj[2],
-    rank4: finalScoresObj[3]
-  };
+  let finalScores;
+  if (tieAssignments && typeof tieAssignments === 'object' && Object.keys(tieAssignments).length > 0) {
+    const tieInfo = getTieInfo(rawInputScores);
+    const { reorderedInputs, order } = buildReorderedInputsFromAssignments(
+      rawInputScores,
+      tieInfo.nonTiedRanks,
+      tieAssignments
+    );
+    const finalScoresObj = calculateFinalScoresFromInputs(reorderedInputs, rankPoints);
+    const playerPoints = [];
+    order.forEach((playerIndex, pos) => {
+      playerPoints[playerIndex] = finalScoresObj[pos];
+    });
+    finalScores = {
+      rank1: playerPoints[0],
+      rank2: playerPoints[1],
+      rank3: playerPoints[2],
+      rank4: playerPoints[3]
+    };
+  } else {
+    const finalScoresObj = calculateFinalScoresFromInputs(rawInputScores, rankPoints);
+    finalScores = {
+      rank1: finalScoresObj[0],
+      rank2: finalScoresObj[1],
+      rank3: finalScoresObj[2],
+      rank4: finalScoresObj[3]
+    };
+  }
 
-  // 新しいゲームオブジェクトを作成
+  // 新しいゲームオブジェクトを作成（inputScores は元の入力のまま保存）
   const newGame = {
     id: Date.now(), // 一意のID
     createdAt: new Date().toISOString(),
-    inputScores: {
-      rank1: Number(currentGameScore.rank1),
-      rank2: Number(currentGameScore.rank2),
-      rank3: Number(currentGameScore.rank3),
-      rank4: Number(currentGameScore.rank4)
-    },
+    inputScores: rawInputScores,
     finalScores
   };
 
@@ -225,6 +248,7 @@ const handleAddGame = () => {
   setCurrentGameScore({ rank1: '', rank2: '', rank3: '', rank4: '' });
   
   console.log("ゲームを追加しました:", newGame);
+  return true;
 };
 
 // Firestore でグループを更新

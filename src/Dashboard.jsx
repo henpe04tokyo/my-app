@@ -6,6 +6,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
 import { settings, calculateFinalScoresFromInputs, recalcFinalStats } from './utils/scoreCalculation';
+import { getTieInfo, buildReorderedInputsFromAssignments } from './utils/tieResolution';
 import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
 import PlayerSettings from './components/Dashboard/PlayerSettings';
@@ -76,7 +77,8 @@ const GroupDetail = ({
   };
   
  // 半荘結果追加時に自動的に保存
- const addGameScore = async (tobiBonuses = []) => {
+ // tieAssignments: 同点時のみ。{ [playerIndex]: rank (1-4) }。省略時は従来どおり入力順で順位決定。
+ const addGameScore = async (tobiBonuses = [], tieAssignments = null) => {
   // 1. 入力バリデーション
   const { rank1, rank2, rank3, rank4 } = currentGameScore;
   if (!currentGroup || [rank1, rank2, rank3, rank4].some(v => v === '')) {
@@ -95,7 +97,7 @@ const GroupDetail = ({
     // 2. 順位点設定を取得
     const rankPoints = currentGroup.settings?.rankPoints || [0, 10, -10, -30];
 
-    // 3. 生の持ち点（飛び賞未反映）
+    // 3. 生の持ち点（飛び賞未反映）※保存用は常に元入力のまま
     const rawInputScores = {
       rank1: Number(rank1),
       rank2: Number(rank2),
@@ -138,14 +140,35 @@ const GroupDetail = ({
       });
     });
     
-    // 4. 飛び賞を除いた持ち点で順位点を計算
-    const baseFinalScoresObj = calculateFinalScoresFromInputs(rawInputScores, rankPoints);
-    const baseFinalScores = {
-      rank1: baseFinalScoresObj[0],
-      rank2: baseFinalScoresObj[1],
-      rank3: baseFinalScoresObj[2],
-      rank4: baseFinalScoresObj[3]
-    };
+    // 4. 飛び賞を除いた持ち点で順位点を計算（同点時はユーザー指定順位で並べ替えてから計算）
+    let baseFinalScores;
+    if (tieAssignments && typeof tieAssignments === 'object' && Object.keys(tieAssignments).length > 0) {
+      const tieInfo = getTieInfo(rawInputScores);
+      const { reorderedInputs, order } = buildReorderedInputsFromAssignments(
+        rawInputScores,
+        tieInfo.nonTiedRanks,
+        tieAssignments
+      );
+      const baseFinalScoresObj = calculateFinalScoresFromInputs(reorderedInputs, rankPoints);
+      const playerPoints = [];
+      order.forEach((playerIndex, pos) => {
+        playerPoints[playerIndex] = baseFinalScoresObj[pos];
+      });
+      baseFinalScores = {
+        rank1: playerPoints[0],
+        rank2: playerPoints[1],
+        rank3: playerPoints[2],
+        rank4: playerPoints[3]
+      };
+    } else {
+      const baseFinalScoresObj = calculateFinalScoresFromInputs(rawInputScores, rankPoints);
+      baseFinalScores = {
+        rank1: baseFinalScoresObj[0],
+        rank2: baseFinalScoresObj[1],
+        rank3: baseFinalScoresObj[2],
+        rank4: baseFinalScoresObj[3]
+      };
+    }
 
     // 5. 飛び賞は順位点計算後に順位点へ加減算
     const finalScores = { ...baseFinalScores };

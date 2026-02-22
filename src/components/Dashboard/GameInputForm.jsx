@@ -1,5 +1,7 @@
 // src/components/Dashboard/GameInputForm.jsx (改良版)
 import React, { useState, useEffect } from 'react';
+import { getTieInfo } from '../../utils/tieResolution';
+import TieResolutionModal from './TieResolutionModal';
 
 const createEmptyTobiBonus = () => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -20,6 +22,8 @@ const GameInputForm = ({
   const [totalScore, setTotalScore] = useState(0);
   const [isTobiModalOpen, setIsTobiModalOpen] = useState(false);
   const [tobiBonuses, setTobiBonuses] = useState([]);
+  const [isTieModalOpen, setIsTieModalOpen] = useState(false);
+  const [tieInfo, setTieInfo] = useState(null);
 
   // スコアが変更されたら合計点を計算
   useEffect(() => {
@@ -84,7 +88,7 @@ const GameInputForm = ({
     setValidationErrors(errors);
   };
 
-  // ゲームスコア追加処理
+  // ゲームスコア追加処理（同点時はモーダルを出してから addGameScore を呼ぶ）
   const handleAddGameScore = async () => {
     // 全フィールドのバリデーション
     const requiredFields = ['rank1', 'rank2', 'rank3', 'rank4'];
@@ -105,6 +109,24 @@ const GameInputForm = ({
       return;
     }
     
+    const rawInputScores = {
+      rank1: Number(currentGameScore.rank1),
+      rank2: Number(currentGameScore.rank2),
+      rank3: Number(currentGameScore.rank3),
+      rank4: Number(currentGameScore.rank4)
+    };
+    const info = getTieInfo(rawInputScores);
+
+    if (info.hasTies) {
+      setTieInfo(info);
+      setIsTieModalOpen(true);
+      return;
+    }
+
+    await submitGameScore();
+  };
+
+  const submitGameScore = async (tieAssignments = null) => {
     try {
       const normalizedBonuses = tobiBonuses.map((bonus) => ({
         fromIndex: Number(bonus.fromIndex),
@@ -126,13 +148,13 @@ const GameInputForm = ({
         return;
       }
 
-      const success = await addGameScore(normalizedBonuses);
+      const success = await addGameScore(normalizedBonuses, tieAssignments);
       
       if (success) {
         setSubmitSuccess(true);
         setTobiBonuses([]);
-        
-        // 3秒後に成功メッセージを非表示にする
+        setIsTieModalOpen(false);
+        setTieInfo(null);
         setTimeout(() => setSubmitSuccess(false), 3000);
       }
     } catch (error) {
@@ -412,6 +434,17 @@ const GameInputForm = ({
           </div>
         </div>
       )}
+
+      <TieResolutionModal
+        isOpen={isTieModalOpen}
+        onClose={() => {
+          setIsTieModalOpen(false);
+          setTieInfo(null);
+        }}
+        tiedGroups={tieInfo?.tiedGroups ?? []}
+        players={players ?? []}
+        onConfirm={(assignments) => submitGameScore(assignments)}
+      />
     </div>
   );
 };
