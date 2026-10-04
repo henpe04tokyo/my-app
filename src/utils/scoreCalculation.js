@@ -26,6 +26,42 @@ export function toRawScore(input) {
 }
 
 /**
+ * 点数入力欄の文字列から不要な文字を除く。数字のみ（allowNegative のときは先頭の - も可）で、桁数は上限あり。
+ * @param {string} value - 入力された文字列
+ * @param {boolean} allowNegative - マイナスを許可するか
+ * @returns {string}
+ */
+export function sanitizeScoreInput(value, allowNegative = true) {
+  const str = String(value ?? '');
+  const isNegative = allowNegative && str.trim().startsWith('-');
+  const digits = str.replace(/[^0-9]/g, '').slice(0, SCORE_INPUT_MAX_DIGITS);
+  return isNegative ? `-${digits}` : digits;
+}
+
+/**
+ * 飛びで終わった最後の局で、飛んだ人が払う点数を持ち点に反映する。
+ * 画面に出ている点数（払う前）を入力したまま、飛んだ人から引いて飛ばした人に足す。
+ * ロンなら放銃点、ツモなら飛んだ人の支払い分を paymentPoints に入れる想定。
+ * 順位や同点の判定、順位点の計算には、この戻り値を使うこと。
+ *
+ * @param {Object} rawScores - { rank1: 36000, ... } 生の持ち点
+ * @param {Array} tobiBonuses - [{ fromIndex, toIndex, paymentPoints }] fromIndex=飛んだ人, toIndex=飛ばした人 (0〜3)
+ * @returns {Object} - 反映後の持ち点 { rank1, ... }（入力は変更しない）
+ */
+export function applyTobiPayments(rawScores, tobiBonuses) {
+  const adjusted = { ...rawScores };
+  (Array.isArray(tobiBonuses) ? tobiBonuses : []).forEach((bonus) => {
+    const payment = Number(bonus.paymentPoints);
+    const fromKey = `rank${Number(bonus.fromIndex) + 1}`;
+    const toKey = `rank${Number(bonus.toIndex) + 1}`;
+    if (!(payment > 0) || fromKey === toKey || !(fromKey in adjusted) || !(toKey in adjusted)) return;
+    adjusted[fromKey] -= payment;
+    adjusted[toKey] += payment;
+  });
+  return adjusted;
+}
+
+/**
  * 順位点オプションから対応する順位点配列を取得
  * @param {string} option - 順位点オプション (例: '10-30')
  * @returns {Array} - 順位点配列
@@ -42,17 +78,18 @@ export function getRankPointsFromOption(option) {
 }
 
 /**
- * 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
+ * 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す。
+ * マイナスの点数も絶対値で丸める（-1,300 → -1、-1,500 → -1、-1,600 → -2）。
  * @param {number} score - 丸める点数
  * @returns {number} - 丸められた千点単位の整数値
  */
 export function roundScore(score) {
   if (isNaN(score)) return 0;
-  const remainder = score % 1000;
-  if (remainder === 0) return score / 1000;
-  const hundredDigit = Math.floor(remainder / 100);
-  const base = Math.floor(score / 1000);
-  return hundredDigit >= 6 ? base + 1 : base;
+  const abs = Math.abs(score);
+  const base = Math.floor(abs / 1000);
+  const hundredDigit = Math.floor((abs % 1000) / 100);
+  const rounded = hundredDigit >= 6 ? base + 1 : base;
+  return score < 0 && rounded !== 0 ? -rounded : rounded;
 }
 
 /**
