@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getTieInfo } from '../../utils/tieResolution';
 import TieResolutionModal from './TieResolutionModal';
+import { toRawScore, SCORE_INPUT_MAX_DIGITS } from '../../utils/scoreCalculation';
 
 const createEmptyTobiBonus = () => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -29,8 +30,8 @@ const GameInputForm = ({
   useEffect(() => {
     try {
       const scores = ['rank1', 'rank2', 'rank3', 'rank4'].map(rank => {
-        const value = currentGameScore[rank];
-        return value === '' ? 0 : Number(value);
+        const raw = toRawScore(currentGameScore[rank]);
+        return Number.isNaN(raw) ? 0 : raw;
       });
       
       const total = scores.reduce((sum, score) => sum + score, 0);
@@ -57,8 +58,10 @@ const GameInputForm = ({
   const safeUpdateScore = (rankKey, value) => {
     try {
       if (setCurrentGameScore && currentGameScore) {
-        // マイナス記号と数字のみ許可
-        const numericValue = value.replace(/[^0-9-]/g, '');
+        // 先頭のマイナス記号と数字のみ許可（桁数は上限あり。下2桁は入力しない）
+        const isNegative = value.trim().startsWith('-');
+        const digits = value.replace(/[^0-9]/g, '').slice(0, SCORE_INPUT_MAX_DIGITS);
+        const numericValue = isNegative ? `-${digits}` : digits;
         
         setCurrentGameScore({
           ...currentGameScore,
@@ -79,7 +82,7 @@ const GameInputForm = ({
     
     if (value === '') {
       errors[rankKey] = '入力必須';
-    } else if (isNaN(Number(value))) {
+    } else if (Number.isNaN(toRawScore(value))) {
       errors[rankKey] = '数値のみ';
     } else {
       delete errors[rankKey];
@@ -95,7 +98,7 @@ const GameInputForm = ({
     const newErrors = {};
     
     requiredFields.forEach(field => {
-      if (!currentGameScore[field]) {
+      if (Number.isNaN(toRawScore(currentGameScore[field]))) {
         newErrors[field] = '入力必須';
       }
     });
@@ -110,10 +113,10 @@ const GameInputForm = ({
     }
     
     const rawInputScores = {
-      rank1: Number(currentGameScore.rank1),
-      rank2: Number(currentGameScore.rank2),
-      rank3: Number(currentGameScore.rank3),
-      rank4: Number(currentGameScore.rank4)
+      rank1: toRawScore(currentGameScore.rank1),
+      rank2: toRawScore(currentGameScore.rank2),
+      rank3: toRawScore(currentGameScore.rank3),
+      rank4: toRawScore(currentGameScore.rank4)
     };
     const info = getTieInfo(rawInputScores);
 
@@ -235,7 +238,7 @@ const GameInputForm = ({
                     inputMode="numeric"
                     value={currentGameScore ? currentGameScore[rankKey] || '' : ''}
                     onChange={(e) => safeUpdateScore(rankKey, e.target.value)}
-                    placeholder="例: 30000 "
+                    placeholder="例: 292（= 29,200点）"
                     className={`block w-full rounded-l-md border ${
                       validationErrors[rankKey] ? 'border-red-300' : 'border-gray-300'
                     } px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
@@ -249,6 +252,11 @@ const GameInputForm = ({
                     ±
                   </button>
                 </div>
+                {!validationErrors[rankKey] && !Number.isNaN(toRawScore(currentGameScore?.[rankKey])) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    = {toRawScore(currentGameScore[rankKey]).toLocaleString()} 点
+                  </p>
+                )}
                 {validationErrors[rankKey] && (
                   <p className="mt-1 text-xs text-red-600">
                     {validationErrors[rankKey]}

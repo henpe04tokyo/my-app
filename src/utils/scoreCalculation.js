@@ -8,6 +8,23 @@ export const settings = {
   rankPointOption: '10-30' // デフォルトの順位点オプション
 };
 
+// 持ち点の入力は下2桁（100点未満）を省略する。例: 292 → 29,200点
+export const SCORE_INPUT_UNIT = 100;
+// 入力欄に入れられる最大桁数（符号を除く）。9999 → 999,900点
+export const SCORE_INPUT_MAX_DIGITS = 4;
+
+/**
+ * 入力欄の文字列（下2桁省略）を、実際の持ち点に変換する。
+ * 集計・順位点計算にはこの関数の戻り値（生の点数）を渡すこと。
+ * @param {string|number} input - 例: '292', '-3'
+ * @returns {number} - 例: 29200, -300。数値として解釈できない場合は NaN
+ */
+export function toRawScore(input) {
+  const str = String(input ?? '').trim();
+  if (!/^-?\d+$/.test(str)) return NaN;
+  return Number(str) * SCORE_INPUT_UNIT;
+}
+
 /**
  * 順位点オプションから対応する順位点配列を取得
  * @param {string} option - 順位点オプション (例: '10-30')
