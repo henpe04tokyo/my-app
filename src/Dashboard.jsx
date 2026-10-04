@@ -5,7 +5,7 @@ import { collection, doc, getDoc, setDoc, query, where, getDocs } from 'firebase
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
-import { settings, calculateFinalScoresFromInputs, recalcFinalStats } from './utils/scoreCalculation';
+import { settings, calculateFinalScoresFromInputs, recalcFinalStats, toRawScore } from './utils/scoreCalculation';
 import { getTieInfo, buildReorderedInputsFromAssignments } from './utils/tieResolution';
 import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
@@ -99,11 +99,16 @@ const GroupDetail = ({
 
     // 3. 生の持ち点（飛び賞未反映）※保存用は常に元入力のまま
     const rawInputScores = {
-      rank1: Number(rank1),
-      rank2: Number(rank2),
-      rank3: Number(rank3),
-      rank4: Number(rank4)
+      rank1: toRawScore(rank1),
+      rank2: toRawScore(rank2),
+      rank3: toRawScore(rank3),
+      rank4: toRawScore(rank4)
     };
+    if (Object.values(rawInputScores).some(Number.isNaN)) {
+      window.alert('持ち点が正しく入力されていません');
+      setIsSaving(false);
+      return false;
+    }
 
     const normalizedTobiBonuses = [];
 

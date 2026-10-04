@@ -15,7 +15,8 @@ import {
 import {
   calculateFinalScoresFromInputs,
   recalcFinalStats,
-  settings
+  settings,
+  toRawScore
 } from './utils/scoreCalculation';
 import { getTieInfo, buildReorderedInputsFromAssignments } from './utils/tieResolution';
 
@@ -160,10 +161,10 @@ const handleAddGame = (tobiBonuses = [], tieAssignments = null) => {
   }
 
   const rawInputScores = {
-    rank1: Number(currentGameScore.rank1),
-    rank2: Number(currentGameScore.rank2),
-    rank3: Number(currentGameScore.rank3),
-    rank4: Number(currentGameScore.rank4)
+    rank1: toRawScore(currentGameScore.rank1),
+    rank2: toRawScore(currentGameScore.rank2),
+    rank3: toRawScore(currentGameScore.rank3),
+    rank4: toRawScore(currentGameScore.rank4)
   };
 
   // 現在のグループの設定から順位点を取得
