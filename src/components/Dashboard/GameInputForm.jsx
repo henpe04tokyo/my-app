@@ -2,14 +2,27 @@
 import React, { useState, useEffect } from 'react';
 import { getTieInfo } from '../../utils/tieResolution';
 import TieResolutionModal from './TieResolutionModal';
-import { toRawScore, SCORE_INPUT_MAX_DIGITS } from '../../utils/scoreCalculation';
+import { toRawScore, sanitizeScoreInput, applyTobiPayments } from '../../utils/scoreCalculation';
 
 const createEmptyTobiBonus = () => ({
   id: `${Date.now()}-${Math.random()}`,
   fromIndex: '',
   toIndex: '',
-  amount: 10
+  amount: 10,
+  payment: '' // 飛んだ人が最後に払った点数（下2桁省略。例: 80 → 8,000点）
 });
+
+// 未選択('')を 0 番目のプレイヤーと取り違えないよう NaN にする
+const parseIndex = (value) => (value === '' ? NaN : Number(value));
+
+const isInvalidBonus = (bonus) =>
+  Number.isNaN(bonus.fromIndex) ||
+  Number.isNaN(bonus.toIndex) ||
+  Number.isNaN(bonus.amount) ||
+  Number.isNaN(bonus.paymentPoints) ||
+  bonus.fromIndex === bonus.toIndex ||
+  bonus.amount < 10 ||
+  bonus.amount % 10 !== 0;
 
 const GameInputForm = ({ 
   players, 
@@ -59,9 +72,7 @@ const GameInputForm = ({
     try {
       if (setCurrentGameScore && currentGameScore) {
         // 先頭のマイナス記号と数字のみ許可（桁数は上限あり。下2桁は入力しない）
-        const isNegative = value.trim().startsWith('-');
-        const digits = value.replace(/[^0-9]/g, '').slice(0, SCORE_INPUT_MAX_DIGITS);
-        const numericValue = isNegative ? `-${digits}` : digits;
+        const numericValue = sanitizeScoreInput(value);
         
         setCurrentGameScore({
           ...currentGameScore,
@@ -91,6 +102,24 @@ const GameInputForm = ({
     setValidationErrors(errors);
   };
 
+  // 飛び賞の入力行を計算・保存用の形に整える（払った点数は生の点数に変換。空欄は 0）
+  const normalizeTobiBonuses = () => tobiBonuses.map((bonus) => ({
+    fromIndex: parseIndex(bonus.fromIndex),
+    toIndex: parseIndex(bonus.toIndex),
+    amount: Number(bonus.amount),
+    paymentPoints: bonus.payment === '' ? 0 : toRawScore(bonus.payment)
+  }));
+
+  // 入力どおりの持ち点と、飛んだ人の支払いを反映した持ち点（入力欄の下のプレビュー用）
+  const enteredScores = {};
+  ['rank1', 'rank2', 'rank3', 'rank4'].forEach((rank) => {
+    enteredScores[rank] = toRawScore(currentGameScore?.[rank]);
+  });
+  const adjustedScores = applyTobiPayments(
+    enteredScores,
+    normalizeTobiBonuses().filter((bonus) => !isInvalidBonus(bonus))
+  );
+
   // ゲームスコア追加処理（同点時はモーダルを出してから addGameScore を呼ぶ）
   const handleAddGameScore = async () => {
     // 全フィールドのバリデーション
@@ -118,7 +147,14 @@ const GameInputForm = ({
       rank3: toRawScore(currentGameScore.rank3),
       rank4: toRawScore(currentGameScore.rank4)
     };
-    const info = getTieInfo(rawInputScores);
+    const normalizedBonuses = normalizeTobiBonuses();
+    if (normalizedBonuses.some(isInvalidBonus)) {
+      window.alert('飛び賞の設定に不正な値があります。内容を確認してください。');
+      return;
+    }
+
+    // 順位・同点は、飛んだ人の支払いを反映した点数で判定する
+    const info = getTieInfo(applyTobiPayments(rawInputScores, normalizedBonuses));
 
     if (info.hasTies) {
       setTieInfo(info);
@@ -131,22 +167,9 @@ const GameInputForm = ({
 
   const submitGameScore = async (tieAssignments = null) => {
     try {
-      const normalizedBonuses = tobiBonuses.map((bonus) => ({
-        fromIndex: Number(bonus.fromIndex),
-        toIndex: Number(bonus.toIndex),
-        amount: Number(bonus.amount)
-      }));
+      const normalizedBonuses = normalizeTobiBonuses();
 
-      const hasInvalidBonus = normalizedBonuses.some((bonus) =>
-        Number.isNaN(bonus.fromIndex) ||
-        Number.isNaN(bonus.toIndex) ||
-        Number.isNaN(bonus.amount) ||
-        bonus.fromIndex === bonus.toIndex ||
-        bonus.amount < 10 ||
-        bonus.amount % 10 !== 0
-      );
-
-      if (hasInvalidBonus) {
+      if (normalizedBonuses.some(isInvalidBonus)) {
         window.alert('飛び賞の設定に不正な値があります。内容を確認してください。');
         return;
       }
@@ -255,6 +278,11 @@ const GameInputForm = ({
                 {!validationErrors[rankKey] && !Number.isNaN(toRawScore(currentGameScore?.[rankKey])) && (
                   <p className="mt-1 text-xs text-gray-500">
                     = {toRawScore(currentGameScore[rankKey]).toLocaleString()} 点
+                    {adjustedScores[rankKey] !== enteredScores[rankKey] && (
+                      <span className={adjustedScores[rankKey] < 0 ? 'text-red-600' : 'text-indigo-700'}>
+                        {' '}→ 支払い反映後 {adjustedScores[rankKey].toLocaleString()} 点
+                      </span>
+                    )}
                   </p>
                 )}
                 {validationErrors[rankKey] && (
@@ -304,9 +332,16 @@ const GameInputForm = ({
               {tobiBonuses.map((bonus) => {
                 const fromLabel = bonus.fromIndex === '' ? '未選択' : getPlayerLabel(Number(bonus.fromIndex));
                 const toLabel = bonus.toIndex === '' ? '未選択' : getPlayerLabel(Number(bonus.toIndex));
+                const paymentPoints = bonus.payment === '' ? 0 : toRawScore(bonus.payment);
+                const fromKey = `rank${parseIndex(bonus.fromIndex) + 1}`;
+                const stillPositive = paymentPoints > 0 && adjustedScores[fromKey] >= 0;
                 return (
                   <li key={bonus.id}>
                     {fromLabel} → {toLabel} : {bonus.amount} ({(bonus.amount * 1000).toLocaleString()}点)
+                    {paymentPoints > 0 && ` / 払い ${paymentPoints.toLocaleString()}点`}
+                    {stillPositive && (
+                      <span className="text-amber-700"> ※反映後も0点以上です。払った点数を確認してください</span>
+                    )}
                   </li>
                 );
               })}
@@ -347,7 +382,7 @@ const GameInputForm = ({
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="text-xs text-gray-600">
                       飛んだユーザー
                       <select
@@ -377,6 +412,22 @@ const GameInputForm = ({
                           </option>
                         ))}
                       </select>
+                    </label>
+                    <label className="text-xs text-gray-600">
+                      飛んだ人が払った点数（ロン・ツモ共通）
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={bonus.payment}
+                        onChange={(e) => updateTobiBonusField(bonus.id, 'payment', sanitizeScoreInput(e.target.value, false))}
+                        placeholder="例: 80（= 8,000点）"
+                        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        {bonus.payment === ''
+                          ? '持ち点は画面の表示のまま入力し、ここに払った点数を入れると自動で計算します（空欄なら反映しません）'
+                          : `= ${toRawScore(bonus.payment).toLocaleString()}点`}
+                      </p>
                     </label>
                     <div className="text-xs text-gray-600">
                       ボーナス（10〜90）

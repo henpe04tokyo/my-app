@@ -5,7 +5,7 @@ import { collection, doc, getDoc, setDoc, query, where, getDocs } from 'firebase
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
 import Analysis from './Analysis';
-import { settings, calculateFinalScoresFromInputs, recalcFinalStats, toRawScore } from './utils/scoreCalculation';
+import { settings, calculateFinalScoresFromInputs, recalcFinalStats, toRawScore, applyTobiPayments } from './utils/scoreCalculation';
 import { getTieInfo, buildReorderedInputsFromAssignments } from './utils/tieResolution';
 import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
@@ -134,6 +134,8 @@ const GroupDetail = ({
       }
 
       const points = amount * 1000;
+      // 飛んだ人が最後に払った点数（生の点数）。未入力・不正値は 0 扱い
+      const paymentPoints = Number(bonus.paymentPoints);
 
       normalizedTobiBonuses.push({
         fromIndex,
@@ -141,16 +143,20 @@ const GroupDetail = ({
         fromPlayer: players[fromIndex] || `プレイヤー${fromIndex + 1}`,
         toPlayer: players[toIndex] || `プレイヤー${toIndex + 1}`,
         amount,
-        points
+        points,
+        paymentPoints: Number.isFinite(paymentPoints) && paymentPoints > 0 ? paymentPoints : 0
       });
     });
+
+    // 3b. 飛んだ人が最後に払った点数を持ち点に反映（順位・同点判定・順位点はこの点数で計算）
+    const adjustedInputScores = applyTobiPayments(rawInputScores, normalizedTobiBonuses);
     
     // 4. 飛び賞を除いた持ち点で順位点を計算（同点時はユーザー指定順位で並べ替えてから計算）
     let baseFinalScores;
     if (tieAssignments && typeof tieAssignments === 'object' && Object.keys(tieAssignments).length > 0) {
-      const tieInfo = getTieInfo(rawInputScores);
+      const tieInfo = getTieInfo(adjustedInputScores);
       const { reorderedInputs, order } = buildReorderedInputsFromAssignments(
-        rawInputScores,
+        adjustedInputScores,
         tieInfo.nonTiedRanks,
         tieAssignments
       );
@@ -166,7 +172,7 @@ const GroupDetail = ({
         rank4: playerPoints[3]
       };
     } else {
-      const baseFinalScoresObj = calculateFinalScoresFromInputs(rawInputScores, rankPoints);
+      const baseFinalScoresObj = calculateFinalScoresFromInputs(adjustedInputScores, rankPoints);
       baseFinalScores = {
         rank1: baseFinalScoresObj[0],
         rank2: baseFinalScoresObj[1],
@@ -192,6 +198,7 @@ const GroupDetail = ({
       createdAt: new Date().toISOString(),
       rawInputScores,
       inputScores: rawInputScores,
+      adjustedInputScores,
       tobiBonus: normalizedTobiBonuses,
       baseFinalScores,
       finalScores
