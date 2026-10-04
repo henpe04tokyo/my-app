@@ -1,4 +1,5 @@
 import {
+  roundScore,
   toRawScore,
   sanitizeScoreInput,
   applyTobiPayments,
@@ -76,5 +77,26 @@ describe('applyTobiPayments', () => {
     );
     // 南49,000 / 東36,000 / 西20,000 / 北-5,000 → 南 +69, 東 +16, 西 -20, 北 -65
     expect(calculateFinalScoresFromInputs(adjusted)).toEqual({ 0: 16, 1: 69, 2: -20, 3: -65 });
+  });
+});
+
+describe('roundScore（五捨六入）', () => {
+  test('プラスの点数: 5以下は切り捨て、6以上は切り上げ', () => {
+    expect([29200, 29500, 29600, 30000, 0, 300, 600].map(roundScore)).toEqual([29, 29, 30, 30, 0, 0, 1]);
+  });
+
+  test('マイナスの点数も絶対値で丸める（プラスと左右対称）', () => {
+    expect([-1300, -1500, -1600, -5000, -5300, -5600].map(roundScore)).toEqual([-1, -1, -2, -5, -5, -6]);
+  });
+
+  test('0に丸まるマイナスの点数は -0 にならない', () => {
+    expect(Object.is(roundScore(-300), 0)).toBe(true);
+    expect(roundScore(-600)).toBe(-1);
+  });
+
+  test('飛んだ人の順位点（マイナスの持ち点が端数のとき）', () => {
+    // 南49,300 / 東36,000 / 西20,000 / 北-5,300 → 北は -5 として -30-(30+5) = -65
+    const result = calculateFinalScoresFromInputs({ rank1: 36000, rank2: 49300, rank3: 20000, rank4: -5300 });
+    expect(result).toEqual({ 0: 16, 1: 69, 2: -20, 3: -65 });
   });
 });

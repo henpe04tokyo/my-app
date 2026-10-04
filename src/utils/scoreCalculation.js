@@ -78,17 +78,18 @@ export function getRankPointsFromOption(option) {
 }
 
 /**
- * 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す
+ * 「五捨六入」：入力された持ち点を下3桁で丸め、千点単位の整数値として返す。
+ * マイナスの点数も絶対値で丸める（-1,300 → -1、-1,500 → -1、-1,600 → -2）。
  * @param {number} score - 丸める点数
  * @returns {number} - 丸められた千点単位の整数値
  */
 export function roundScore(score) {
   if (isNaN(score)) return 0;
-  const remainder = score % 1000;
-  if (remainder === 0) return score / 1000;
-  const hundredDigit = Math.floor(remainder / 100);
-  const base = Math.floor(score / 1000);
-  return hundredDigit >= 6 ? base + 1 : base;
+  const abs = Math.abs(score);
+  const base = Math.floor(abs / 1000);
+  const hundredDigit = Math.floor((abs % 1000) / 100);
+  const rounded = hundredDigit >= 6 ? base + 1 : base;
+  return score < 0 && rounded !== 0 ? -rounded : rounded;
 }
 
 /**
