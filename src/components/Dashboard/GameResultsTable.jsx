@@ -3,6 +3,8 @@ import RankingTable from './RankingTable.jsx';
 import ShareResultModal from './ShareResultModal.jsx';
 import { buildShareSummary } from '../../utils/shareResult';
 import { trackEvent } from '../../analytics';
+import { chipDiffTotal, CHIP_INPUT_MODES } from '../../utils/scoreCalculation';
+import ChipInput from './ChipInput.jsx';
 
 const calculateChipBonus = (chipValue, distribution) => {
   const chipInput = chipValue !== undefined && chipValue !== '' 
@@ -18,8 +20,17 @@ const GameResultsTable = ({
   chipRow, 
   handleEditGameScore, 
   handleDeleteGame, 
-  handleChipChange 
+  handleChipChange,
+  chipInputMode,
+  chipInputLoading = false
 }) => {
+  const isDiffMode = chipInputMode === CHIP_INPUT_MODES.DIFF;
+  const chipRowLabel = isDiffMode ? 'チップ（差）' : 'チップ';
+  const chipTotal = chipDiffTotal(chipRow);
+  const chipTotalWarning = chipTotal !== null && chipTotal !== 0
+    ? `チップの差の合計が ${chipTotal} です（0で合います）`
+    : null;
+
   // モバイルビューで表示しているプレイヤーのインデックス
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [calculatedStats, setCalculatedStats] = useState({});
@@ -208,19 +219,25 @@ const GameResultsTable = ({
               ))}
 
               <tr className="bg-gray-50">
-                <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">チップ</td>
+                <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">{chipRowLabel}</td>
                 {["rank1", "rank2", "rank3", "rank4"].map((r) => (
                   <td key={r} className="whitespace-nowrap px-6 py-4 text-right text-sm text-gray-500">
-                    <input
-                      type="number"
-                      value={chipRow?.[r] !== undefined ? chipRow[r] : ''}
-                      onChange={(e) => safelyHandleChipChange(r, e.target.value)}
+                    <ChipInput
+                      storedValue={chipRow?.[r]}
+                      mode={chipInputMode}
+                      disabled={chipInputLoading}
+                      onCommit={(v) => safelyHandleChipChange(r, v)}
                       className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                     />
                   </td>
                 ))}
                 <td className="whitespace-nowrap px-6 py-4"></td>
               </tr>
+              {chipTotalWarning && (
+                <tr>
+                  <td colSpan={(Array.isArray(players) ? players.length : 4) + 2} className="px-2 py-1 text-right text-xs text-amber-600">{chipTotalWarning}</td>
+                </tr>
+              )}
 
               <tr className="bg-gray-100">
                 <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">半荘結果合計</td>
@@ -378,19 +395,25 @@ const GameResultsTable = ({
 
                 {/* チップ入力行 */}
                 <tr className="bg-gray-50">
-                  <td className="px-2 py-2 text-center text-sm font-medium text-gray-900">チップ</td>
+                  <td className="px-2 py-2 text-center text-sm font-medium text-gray-900">{chipRowLabel}</td>
                   {["rank1", "rank2", "rank3", "rank4"].map((r) => (
                     <td key={r} className="px-1 py-2 text-right text-sm text-gray-500">
-                      <input
-                        type="number"
-                        value={chipRow?.[r] !== undefined ? chipRow[r] : ''}
-                        onChange={(e) => safelyHandleChipChange(r, e.target.value)}
+                      <ChipInput
+                        storedValue={chipRow?.[r]}
+                        mode={chipInputMode}
+                        disabled={chipInputLoading}
+                        onCommit={(v) => safelyHandleChipChange(r, v)}
                         className="w-12 rounded border border-gray-300 px-1 py-1 text-right text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                       />
                     </td>
                   ))}
                   <td className="px-1 py-2"></td>
                 </tr>
+                {chipTotalWarning && (
+                  <tr>
+                    <td colSpan={(Array.isArray(players) ? players.length : 4) + 2} className="px-2 py-1 text-right text-xs text-amber-600">{chipTotalWarning}</td>
+                  </tr>
+                )}
 
                 {/* 半荘結果合計行 */}
                 <tr className="bg-gray-100">

@@ -14,6 +14,7 @@
 | `/` | `App.js` の `HomeOrLanding` | **未ログイン → `Landing.jsx`**（ログイン不要の精算計算ツール＋FAQ。検索の入口）／ログイン済み → `Home.jsx` |
 | `/login` `/signup` | `Login.jsx` / `Signup.jsx` | メール+パスワード、またはGoogleでログイン・登録（`noindex`） |
 | `/home` | `Home.jsx` | グループ（= 1回の集まり）の一覧・作成・削除、ログアウト。作成時の名前の既定は今日の日付 |
+| `/settings` | `Settings.jsx` | 設定（今はチップの入力モード）。選んだ時点で `users/{uid}` に保存。`noindex`。`Dashboard` とは別要素（`/dashboard` 配下に置くとホームへ戻される） |
 | `/dashboard/group/:groupId` | `Dashboard.jsx` 内の `GroupDetail` | プレイヤー設定 → チップ・順位点設定 → 半荘結果入力 → 結果表・順位回数表 |
 | `/dashboard/analysis` | `Analysis.jsx` | 年・プレイヤーで絞り込み、グループ横断の合計（半荘結果・チップ・最終結果） |
 | `*` | `NotFound.jsx` | |
@@ -35,6 +36,8 @@
 | `analytics.js` | GA4（Firebase Analytics）。`initAnalytics()` を `index.js` で呼び、`trackEvent(name, params)` で計測 |
 | `components/Dashboard/ShareResultModal.jsx` | 結果の共有画像のプレビュー（共有・保存・コピー）。`GameResultsTable` のボタンから開く |
 | `utils/shareResult.js` / `utils/shareImage.js` | 共有画像の数字の組み立て（`buildShareSummary`）と、Canvas での描画（`renderTotalImage` / `renderGamesImage`） |
+| `hooks/useUserPreferences.js` | `users/{uid}.preferences` の読み書き（`Settings` と `Dashboard` が使う）。保存成功時だけ state 更新 |
+| `components/Dashboard/ChipInput.jsx` | チップ1人ぶんの入力欄（モードに応じた表示・読み取り。下書き state を持つ） |
 | `utils/quickCalc.js` | 精算計算ツール用の純関数 `calculateQuickResult`。`scoreCalculation.js` を再利用 |
 | `utils/scoreCalculation.js` | **点数ロジックの中心。** 入力変換、五捨六入、順位点、飛んだ人の支払い反映、集計 |
 | `utils/tieResolution.js` | 同点判定・順位の組み立て |
@@ -77,6 +80,14 @@
 
 メモリ上では `docId`（FirestoreのID）と `id` を併用しているが、保存するときは `docId` を除く。
 
+### `users/{uid}`
+| フィールド | 型 | 内容 |
+|---|---|---|
+| `preferences.chipInputMode` | `'count'` \| `'diff'` | チップの入力モード。無い・不明な値は `count` |
+| `updatedAt` | timestamp | |
+
+`setDoc` で全体上書き（今はこのフィールドだけ）。フィールドを足すときは読み込んだ全体に重ねて書く。
+
 ### `games[]` の1要素（半荘）
 
 | フィールド | 内容 |
@@ -99,10 +110,10 @@
 
 ### Firestoreのルール（`firestore.rules`）
 - `groups`: **作成**はログイン済みなら誰でも（`userId` の検証なし）／**読み・更新・削除**は `userId` が自分のuidのときだけ
-- `users/{uid}`: 自分のみ（コードからは使っていない）／ `admin/*`: カスタムクレーム `admin` のみ
+- `users/{uid}`: 自分のみ（設定の保存に使用。create が uid を検証していない点は backlog）／ `admin/*`: カスタムクレーム `admin` のみ
 - 他人が読む機能（共有URLなど）を作るときは、ルールの変更が必要
 
 ### 読み書きの流れ
 - ログイン後、`Dashboard` が自分の全グループを一括取得（`where userId == uid`）し、各グループの `finalStats` をクライアントで再計算
-- グループ画面を開くと、対象ドキュメントを `getDoc` で取り直す
+- グループ画面を開くと、対象ドキュメントを `getDoc` で取り直す（初回の1回のみ。以前あった `GroupDetail` の再取得 `useEffect` はループして入力が巻き戻るため削除。別端末の変更は再読み込みまで反映されない）
 - 変更のたびにドキュメント全体を `setDoc`（merge なし）で上書きする。**2台で同時に編集すると後勝ち**
