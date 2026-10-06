@@ -32,7 +32,7 @@ export const generateAppSchema = () => {
       "priceCurrency": "JPY"
     },
     "description": "麻雀のスコアを簡単に計算・管理できるオンラインアプリ。半荘ごとのスコアを記録し、成績を分析できます。",
-    "screenshot": "https://mahjong-score.example.com/images/screenshot.png",
+    "url": "https://h4k-mj.xyz/",
     "featureList": "スコア計算、成績管理、統計分析",
     "softwareVersion": "1.0.0"
   };

@@ -1,7 +1,4 @@
-# public/robots.txt
 User-agent: *
-Disallow: /dashboard/
 Allow: /
 
-# サイトマップの場所
-Sitemap: https://mahjong-score.example.com/sitemap.xml
+Sitemap: https://h4k-mj.xyz/sitemap.xml
