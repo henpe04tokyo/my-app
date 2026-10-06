@@ -3,6 +3,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
+import SEO from './components/Dashboard/SEO/SEO';
 
 function Login() {
   const auth = getAuth();
@@ -41,6 +42,7 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <SEO title="ログイン | 麻雀スコア計算アプリ" robots="noindex, follow" />
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-6 shadow-lg">
         <div>
           <h1 className="mt-6 text-center text-3xl font-extrabold text-gray-900">麻雀スコア管理</h1>

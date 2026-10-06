@@ -2,6 +2,14 @@
 
 新しいものが上。何を・なぜ・どのPRか（PR番号は fork `katahira0420/my-app` のもの）。
 
+## 2026-10-06 検索流入の土台づくり：ログイン不要の計算ツールを入口にする
+- なぜ: 未ログインだと `/` がログイン画面に飛ばされ、HashRouter の `#` 以降は検索エンジンが別ページとして扱わないため、サイト全体が「ログインフォーム1ページ」にしか見えなかった。検索から来た人が使えるものが無かった
+- 入口: 未ログインの `/` を、ログイン不要の「精算計算ツール」付きトップ（`Landing.jsx`）にした。ログイン済みなら従来どおり `Home`。`/login` `/signup` は `noindex`
+- 計算ツール: 4人の持ち点 → 順位・五捨六入・順位点・スコア（pt）・収支（円）。`utils/quickCalc.js` が `scoreCalculation.js` の関数を使うので、アプリ本体と結果は一致する（保存・送信なし）。同点は席順（上に入力した人が上位）。飛び賞・チップは対象外
+- 土台: `robots.txt` / `sitemap.xml` がダミー（`mahjong-score.example.com`）だったのを `h4k-mj.xyz` に修正（sitemap は XML 宣言の前にコメントがあり不正だった）。`index.html` を `lang="ja"`・title・description・OGP・canonical・JSON-LD つきに。OGP画像 `public/ogp.png` を追加。`logo192/512` を `.png` に（参照は `.png` だったが実ファイルは `.jpg` だった）
+- 計測: GA4（`analytics.js`、`firebase.js` の `measurementId` を使う）を追加。独自イベントは `calculator_used`（ルール名のみ）、`calculator_copy`、`landing_cta_click`。持ち点などの入力値は送らない
+- 点数ロジックと保存データは変更なし
+
 ## 2026-10-06 文脈ファイル（`docs/context/`）を整備
 - `CLAUDE.md` を入口として短くし、詳細を `docs/context/` に分けた（architecture / scoring-spec / runbook / backlog / changelog）
 - 以前の `CLAUDE.md` の「Firebaseの設定値は `.env` にあり、リポジトリに入っていない」は誤りだった。実際は `src/firebase.js` に直書き（訂正済み）

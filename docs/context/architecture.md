@@ -11,8 +11,9 @@
 
 | パス | ファイル | 内容 |
 |---|---|---|
-| `/login` `/signup` | `Login.jsx` / `Signup.jsx` | メール+パスワード、またはGoogleでログイン・登録 |
-| `/` `/home` | `Home.jsx` | グループ（= 1回の集まり）の一覧・作成・削除、ログアウト。作成時の名前の既定は今日の日付 |
+| `/` | `App.js` の `HomeOrLanding` | **未ログイン → `Landing.jsx`**（ログイン不要の精算計算ツール＋FAQ。検索の入口）／ログイン済み → `Home.jsx` |
+| `/login` `/signup` | `Login.jsx` / `Signup.jsx` | メール+パスワード、またはGoogleでログイン・登録（`noindex`） |
+| `/home` | `Home.jsx` | グループ（= 1回の集まり）の一覧・作成・削除、ログアウト。作成時の名前の既定は今日の日付 |
 | `/dashboard/group/:groupId` | `Dashboard.jsx` 内の `GroupDetail` | プレイヤー設定 → チップ・順位点設定 → 半荘結果入力 → 結果表・順位回数表 |
 | `/dashboard/analysis` | `Analysis.jsx` | 年・プレイヤーで絞り込み、グループ横断の合計（半荘結果・チップ・最終結果） |
 | `*` | `NotFound.jsx` | |
@@ -29,7 +30,10 @@
 | `components/Dashboard/GameInputForm.jsx` | 半荘結果の入力フォーム（持ち点、プレビュー、合計、飛び賞モーダル、同点モーダル） |
 | `components/Dashboard/GameResultsTable.jsx` | 半荘ごとの結果表・チップ行・合計。末尾に `RankingTable`（順位回数表） |
 | `components/Dashboard/TieResolutionModal.jsx` | 同点時の順位指定 |
-| `components/Dashboard/SEO/` | SEO・構造化データ |
+| `Landing.jsx` / `components/Landing/ScoreCalculator.jsx` | 未ログイン向けトップ。ログイン不要の精算計算ツール（保存しない）と FAQ（FAQPage の JSON-LD つき） |
+| `components/Dashboard/SEO/` | SEO・構造化データ（`react-helmet`）。サイトURLは `https://h4k-mj.xyz` |
+| `analytics.js` | GA4（Firebase Analytics）。`initAnalytics()` を `index.js` で呼び、`trackEvent(name, params)` で計測 |
+| `utils/quickCalc.js` | 精算計算ツール用の純関数 `calculateQuickResult`。`scoreCalculation.js` を再利用 |
 | `utils/scoreCalculation.js` | **点数ロジックの中心。** 入力変換、五捨六入、順位点、飛んだ人の支払い反映、集計 |
 | `utils/tieResolution.js` | 同点判定・順位の組み立て |
 | `Home.jsx` / `Analysis.jsx` / `Login.jsx` / `Signup.jsx` / `AuthContext.js` / `PrivateRoute.jsx` | 上の画面表のとおり |
@@ -39,6 +43,12 @@
 - `hooks/useGameManager.js`、`hooks/useFirebase.js`
 - `config/firebaseConfig.js`
 - `App.test.js`（CRA初期のまま。実態に合っていない）
+
+## 検索エンジン向けの設定（SEO）
+- 実質の公開URLは `https://h4k-mj.xyz/` の1つ（HashRouter なので `#/…` は別ページとして扱われない）。入口は `Landing.jsx`
+- OGP・description・canonical・JSON-LD（WebApplication）は **`public/index.html` に静的に書く**。LINE・X などの共有プレビューは JS を実行しないため。`react-helmet`（`SEO.js`）で後から差し込むタグは、検索エンジン（JSを実行する）向け
+- `public/robots.txt` / `sitemap.xml` は本番ドメイン。ページを増やしたら sitemap に追記する
+- `AuthProvider` は認証の確定まで「Loading...」だけを表示する。クローラーが Firebase Auth の初期化を待てない場合は、トップが「Loading...」に見える恐れがある（backlog 参照。デプロイ後に Search Console の URL 検査で確認する）
 
 ## 命名の注意
 - `rank1`〜`rank4`（持ち点・`finalScores`・チップ行のキー）は **「1〜4人目のプレイヤー列」**。`players[0]` が `rank1`。順位ではない。

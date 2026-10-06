@@ -3,6 +3,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { getAuth, createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
+import SEO from './components/Dashboard/SEO/SEO';
 
 function Signup() {
   const auth = getAuth();
@@ -46,6 +47,7 @@ function Signup() {
 
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', textAlign: 'center' }}>
+      <SEO title="会員登録 | 麻雀スコア計算アプリ" robots="noindex, follow" />
       <h1>会員登録</h1>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       <form onSubmit={handleSignup}>

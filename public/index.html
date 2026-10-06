@@ -1,15 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
   <head>
     <base href="/" />
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <title>麻雀の精算計算ツール｜ウマ・オカ・五捨六入対応・ログイン不要</title>
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="4人の持ち点を入れるだけで、ウマ・オカ・五捨六入を反映した順位点と収支を自動計算。ログイン不要・無料。ログインすれば半荘ごとの記録、飛び賞、チップ、年間集計まで管理できます。"
     />
+    <link rel="canonical" href="https://h4k-mj.xyz/" />
+
+    <!-- 共有プレビュー（LINE・Xなど）はJSを実行しないため、OGPはここに静的に書く -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="麻雀スコア計算アプリ" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:url" content="https://h4k-mj.xyz/" />
+    <meta property="og:title" content="麻雀の精算計算ツール｜ウマ・オカ・五捨六入対応・ログイン不要" />
+    <meta
+      property="og:description"
+      content="4人の持ち点を入れるだけで、順位点と収支を自動計算。ログイン不要・無料。"
+    />
+    <meta property="og:image" content="https://h4k-mj.xyz/ogp.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="麻雀の精算計算ツール｜ウマ・オカ・五捨六入対応・ログイン不要" />
+    <meta
+      name="twitter:description"
+      content="4人の持ち点を入れるだけで、順位点と収支を自動計算。ログイン不要・無料。"
+    />
+    <meta name="twitter:image" content="https://h4k-mj.xyz/ogp.png" />
+
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
@@ -20,10 +44,31 @@
       Notice the use of relative paths above.
       This ensures resources are loaded correctly regardless of deployment path.
     -->
-    <title>麻雀スコア計算</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "麻雀スコア計算アプリ",
+        "url": "https://h4k-mj.xyz/",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ja",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" },
+        "description": "麻雀の持ち点から、ウマ・オカ・五捨六入を反映した順位点と収支を計算し、半荘ごとの成績を記録・集計できるWebアプリ。"
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <!-- JSが動かないクローラー向けの最小限の本文。アプリが起動すると置き換わる -->
+      <main style="max-width: 640px; margin: 0 auto; padding: 24px; font-family: sans-serif">
+        <h1>麻雀の精算計算ツール（ログイン不要・無料）</h1>
+        <p>
+          4人の持ち点を入れるだけで、ウマ・オカ・五捨六入を反映した順位点と収支を自動計算します。
+          ログインすると、半荘ごとの記録、飛び賞、チップ、年間の集計まで管理できます。
+        </p>
+      </main>
+    </div>
   </body>
 </html>

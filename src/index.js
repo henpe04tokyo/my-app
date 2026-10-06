@@ -5,6 +5,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './AuthContext';
+import { initAnalytics } from './analytics';
 
 // Service Worker Registration
 function registerServiceWorker() {
@@ -37,6 +38,9 @@ function registerServiceWorker() {
 try {
   // Service Workerを登録
   registerServiceWorker();
+
+  // アクセス計測（GA4）を開始
+  initAnalytics();
   
   // アプリをレンダリング
   const root = ReactDOM.createRoot(document.getElementById('root'));

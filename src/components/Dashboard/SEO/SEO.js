@@ -19,12 +19,11 @@ const SEO = ({
   description = '麻雀のスコアを簡単に計算・管理できるオンラインアプリ。半荘ごとのスコアを記録し、成績を分析できます。',
   keywords = '麻雀,スコア計算,点数計算,成績管理,オンラインツール',
   canonical,
-  ogImage = '/images/ogp.png',
+  ogImage = '/ogp.png',
   ogType = 'website',
   robots = 'index, follow'
 }) => {
-  // サイトのベースURL（本番環境に合わせて変更）
-  const siteUrl = 'https://mahjong-score.example.com';
+  const siteUrl = 'https://h4k-mj.xyz';
   
   // 正規URLの生成
   const canonicalUrl = canonical 

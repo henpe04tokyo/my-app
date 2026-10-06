@@ -49,6 +49,12 @@
 ## 7. 集計
 - `finalResult` = 全半荘の `finalScores` を、プレイヤー列ごとに合計したもの（プレイヤー名で集計）
 
+## 8. ログイン不要の精算計算ツール（`utils/quickCalc.js`）
+- トップ（未ログイン）の計算ツール。入力は4人の持ち点（下2桁省略、`toRawScore` 経由）、順位点（5種類）、レート（1ptあたり円）
+- 計算は `calculateFinalScoresFromInputs` をそのまま使う（原点25,000・返し30,000点固定）。収支（円）= スコア（pt）× 1ptあたりの円
+- 同点は席順（上に入力した人が上位）。アプリ本体のような同点時の順位指定はない。飛び賞・チップは対象外
+- 保存・送信はしない。ここを変えたら、`quickCalc.test.js` と `Landing.test.js` も確認する
+
 ## 保存される値
 `games[]` のフィールドは [architecture.md](architecture.md) を参照。要点:
 - `rawInputScores` / `inputScores` = 入力どおり、`adjustedInputScores` = 支払い反映後
