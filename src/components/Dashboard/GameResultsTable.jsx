@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import RankingTable from './RankingTable.jsx';
+import ShareResultModal from './ShareResultModal.jsx';
+import { buildShareSummary } from '../../utils/shareResult';
+import { trackEvent } from '../../analytics';
 
 const calculateChipBonus = (chipValue, distribution) => {
   const chipInput = chipValue !== undefined && chipValue !== '' 
@@ -20,6 +23,16 @@ const GameResultsTable = ({
   // モバイルビューで表示しているプレイヤーのインデックス
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [calculatedStats, setCalculatedStats] = useState({});
+  // 共有画像のモーダル（'total' | 'games' | null）
+  const [shareKind, setShareKind] = useState(null);
+  const shareSummary = useMemo(
+    () => buildShareSummary({ group: currentGroup, players, chipRow }),
+    [currentGroup, players, chipRow]
+  );
+  const openShare = (kind) => {
+    trackEvent('share_image', { kind });
+    setShareKind(kind);
+  };
   
   // デバッグログとインラインでの緊急計算
   useEffect(() => {
@@ -130,6 +143,25 @@ const GameResultsTable = ({
   return (
     <div className="rounded-lg bg-white p-6 shadow-md">
       <h2 className="mb-4 text-lg font-semibold text-gray-800 border-b pb-2">ゲーム結果履歴</h2>
+
+      {Array.isArray(currentGroup.games) && currentGroup.games.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => openShare('total')}
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            結果を画像で共有
+          </button>
+          <button
+            type="button"
+            onClick={() => openShare('games')}
+            className="rounded-md border border-indigo-600 bg-white px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+          >
+            半荘ごとの結果を画像で共有
+          </button>
+        </div>
+      )}
       
       {renderPlayerNav()}
       
@@ -472,6 +504,10 @@ const GameResultsTable = ({
       {/* 順位集計表 */}
       <h3 className="mt-8 text-lg font-semibold text-gray-800 border-b pb-2">順位</h3>
       {currentGroup && <RankingTable currentGroup={currentGroup} />}
+
+      {shareKind && (
+        <ShareResultModal kind={shareKind} summary={shareSummary} onClose={() => setShareKind(null)} />
+      )}
     </div>
   );
 };
