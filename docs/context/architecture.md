@@ -33,6 +33,8 @@
 | `Landing.jsx` / `components/Landing/ScoreCalculator.jsx` | 未ログイン向けトップ。ログイン不要の精算計算ツール（保存しない）と FAQ（FAQPage の JSON-LD つき） |
 | `components/Dashboard/SEO/` | SEO・構造化データ（`react-helmet`）。サイトURLは `https://h4k-mj.xyz` |
 | `analytics.js` | GA4（Firebase Analytics）。`initAnalytics()` を `index.js` で呼び、`trackEvent(name, params)` で計測 |
+| `components/Dashboard/ShareResultModal.jsx` | 結果の共有画像のプレビュー（共有・保存・コピー）。`GameResultsTable` のボタンから開く |
+| `utils/shareResult.js` / `utils/shareImage.js` | 共有画像の数字の組み立て（`buildShareSummary`）と、Canvas での描画（`renderTotalImage` / `renderGamesImage`） |
 | `utils/quickCalc.js` | 精算計算ツール用の純関数 `calculateQuickResult`。`scoreCalculation.js` を再利用 |
 | `utils/scoreCalculation.js` | **点数ロジックの中心。** 入力変換、五捨六入、順位点、飛んだ人の支払い反映、集計 |
 | `utils/tieResolution.js` | 同点判定・順位の組み立て |

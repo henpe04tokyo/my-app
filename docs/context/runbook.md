@@ -47,10 +47,12 @@
 
 ## 検索流入まわりの作業（デプロイ後）
 - 計測: GA4 はプロジェクト `mahjong-first` の `measurementId`（`src/firebase.js`）で送る。GA4 のリアルタイムで `calculator_used` などが届くか確認
-- Search Console（**オーナーの作業**。Claudeは操作しない）:
-  1. 「ドメイン」プロパティで `h4k-mj.xyz` を登録（DNS の TXT レコードで所有権を確認）
-  2. サイトマップ `https://h4k-mj.xyz/sitemap.xml` を送信
-  3. 「URL検査」で `https://h4k-mj.xyz/` を「公開URLをテスト」→ 表示されたスクリーンショットが **ログイン画面や「Loading...」ではなく、計算ツールのトップ**になっているか確認。「インデックス登録をリクエスト」
+- Search Console: **登録済み（2026-10-06）**。「ドメイン」プロパティ `h4k-mj.xyz`（`sc-domain:h4k-mj.xyz`）
+  - 所有権の確認は DNS の TXT レコード（`google-site-verification=…`）。DNS は Netlify DNS で、レコードは Netlify（team `henpe04tokyo` の DNS 設定）に追加した。**このレコードを消すと確認が外れる**
+  - サイトマップ `https://h4k-mj.xyz/sitemap.xml` を送信済み。送信直後は「取得できませんでした」と出たが、配信側は 200・`application/xml`・XML も妥当（一時的な表示とみられる。数日たっても続くなら調べる）
+  - 「URL検査」の「公開URLをテスト」で、Googlebot（スマートフォン）の描画が計算ツールのトップ（「Loading...」ではない）と確認済み。「インデックス登録をリクエスト」も実施。コンソールには Service Worker の登録失敗が出るが、Googlebot が非対応なだけで影響なし
+  - 新しいページ（解説ページなど）を足したら、`sitemap.xml` に追記してから、URL検査でインデックス登録をリクエストする
+  - 操作の注意: Claude in Chrome が使うブラウザは、Google にはログイン済みだったが **Netlify にはログインしていなかった**。Netlify の操作（DNS など）は、オーナーのウィンドウでやってもらう
 - 共有プレビュー: 本番URLを LINE・X に貼り、OGP画像とタイトルが出るか確認（反映が遅いときは各サービスのキャッシュ）
 - 数週間〜数か月は様子を見る。Search Console の「検索パフォーマンス」で、実際に出ているクエリを見て次に書くページを決める
 
