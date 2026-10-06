@@ -3,7 +3,11 @@ import {
   toRawScore,
   sanitizeScoreInput,
   applyTobiPayments,
-  calculateFinalScoresFromInputs
+  calculateFinalScoresFromInputs,
+  chipInputToCount,
+  chipCountToInput,
+  chipDiffTotal,
+  recalcFinalStats
 } from './scoreCalculation';
 
 describe('toRawScore / sanitizeScoreInput', () => {
@@ -98,5 +102,65 @@ describe('roundScore（五捨六入）', () => {
     // 南49,300 / 東36,000 / 西20,000 / 北-5,300 → 北は -5 として -30-(30+5) = -65
     const result = calculateFinalScoresFromInputs({ rank1: 36000, rank2: 49300, rank3: 20000, rank4: -5300 });
     expect(result).toEqual({ 0: 16, 1: 69, 2: -20, 3: -65 });
+  });
+});
+
+describe('チップの入力変換', () => {
+  test.each([
+    ['count', '18', '18'],
+    ['diff', '-2', '18'],
+    ['diff', '0', '20'],
+    ['diff', '3', '23'],
+    ['diff', '-22', '-2'],
+    ['count', '', ''],
+    ['diff', '', ''],
+    ['count', '-', null],
+    ['diff', '-', null],
+    ['count', '1.5', null],
+    ['diff', '1.5', null],
+    ['diff', 'abc', null],
+    ['diff', '05', '25'],
+  ])('chipInputToCount(%s, %j) = %j', (mode, input, expected) => {
+    expect(chipInputToCount(input, mode)).toBe(expected);
+  });
+
+  test('保存値 → 表示', () => {
+    expect(chipCountToInput('18', 'diff')).toBe('-2');
+    expect(chipCountToInput('18', 'count')).toBe('18');
+    expect(chipCountToInput('20', 'diff')).toBe('0');
+    expect(chipCountToInput('', 'diff')).toBe('');
+    expect(chipCountToInput('', 'count')).toBe('');
+    expect(chipCountToInput(undefined, 'diff')).toBe('');
+    expect(chipCountToInput('abc', 'diff')).toBe('abc');
+  });
+
+  test('保存→表示→保存で値が変わらない', () => {
+    ['diff', 'count'].forEach((mode) => {
+      ['18', '20', '23', '-2', ''].forEach((stored) => {
+        expect(chipInputToCount(chipCountToInput(stored, mode), mode)).toBe(stored);
+      });
+    });
+  });
+
+  test('差分モードで入力した値は、持ち枚数と同じチップ点になる', () => {
+    const base = {
+      players: ['A', 'B', 'C', 'D'],
+      games: [],
+      settings: { chipDistribution: 300 },
+    };
+    const viaDiff = recalcFinalStats({ ...base, chipRow: { rank1: chipInputToCount('-2', 'diff') } });
+    const viaCount = recalcFinalStats({ ...base, chipRow: { rank1: chipInputToCount('18', 'count') } });
+    expect(viaDiff.A.chipBonus).toBe(viaCount.A.chipBonus);
+    expect(viaDiff.A.chipBonus).toBe(-6);
+  });
+});
+
+describe('chipDiffTotal', () => {
+  test('差の合計。空欄は0、全員空欄は null', () => {
+    expect(chipDiffTotal({ rank1: '18', rank2: '20', rank3: '', rank4: '20' })).toBe(-2);
+    expect(chipDiffTotal({ rank1: '22', rank2: '18', rank3: '20', rank4: '20' })).toBe(0);
+    expect(chipDiffTotal({ rank1: '', rank2: '' })).toBeNull();
+    expect(chipDiffTotal({})).toBeNull();
+    expect(chipDiffTotal(undefined)).toBeNull();
   });
 });

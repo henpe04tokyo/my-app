@@ -11,6 +11,7 @@ import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
 import PlayerSettings from './components/Dashboard/PlayerSettings';
 import ChipSettings from './components/Dashboard/ChipSettings';
+import useUserPreferences from './hooks/useUserPreferences';
 
 // グループ詳細コンポーネント
 const GroupDetail = ({ 
@@ -21,6 +22,7 @@ const GroupDetail = ({
   rankPointOption, setRankPointOption,
   currentGameScore, setCurrentGameScore,
   chipRow, setChipRow,
+  chipInputMode, chipInputLoading,
   navigate
 }) => {
   const [isSaving, setIsSaving] = useState(false);
@@ -488,6 +490,8 @@ const GroupDetail = ({
           handleEditGameScore={handleEditGameScore}
           handleDeleteGame={handleDeleteGame}
           handleChipChange={handleChipChange}
+          chipInputMode={chipInputMode}
+          chipInputLoading={chipInputLoading}
         />
       </div>
     </div>
@@ -502,6 +506,7 @@ const Dashboard = () => {
   const auth = getAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { preferences, loading: preferencesLoading } = useUserPreferences();
 
   // ========== すべての State 宣言 ==========
   const [groups, setGroups] = useState([]);
@@ -724,6 +729,8 @@ const Dashboard = () => {
           setCurrentGameScore={setCurrentGameScore}
           chipRow={chipRow}
           setChipRow={setChipRow}
+          chipInputMode={preferences.chipInputMode}
+          chipInputLoading={preferencesLoading}
           navigate={navigate}
         />
       );

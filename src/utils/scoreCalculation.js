@@ -25,6 +25,57 @@ export function toRawScore(input) {
   return Number(str) * SCORE_INPUT_UNIT;
 }
 
+// チップの基準枚数。持ち枚数がこの数のとき、チップ点は0
+export const CHIP_BASE_COUNT = 20;
+
+// チップ欄の入力モード。count = 持ち枚数、diff = 基準枚数との差。保存する形はどちらも持ち枚数
+export const CHIP_INPUT_MODES = { COUNT: 'count', DIFF: 'diff' };
+
+/**
+ * チップ欄の入力文字列を、保存する持ち枚数（文字列）に変換する。
+ * @param {string} input - 入力欄の文字列
+ * @param {string} mode - CHIP_INPUT_MODES の値（不明な値は count 扱い）
+ * @returns {string|null} 空欄は ''（= 基準枚数）。整数でない・入力途中は null（保存しない）
+ */
+export function chipInputToCount(input, mode) {
+  const str = String(input ?? '').trim();
+  if (str === '') return '';
+  if (!/^-?\d+$/.test(str)) return null;
+  const n = Number(str);
+  return String(mode === CHIP_INPUT_MODES.DIFF ? CHIP_BASE_COUNT + n : n);
+}
+
+/**
+ * 保存されている持ち枚数を、入力欄に出す文字列に変換する。
+ * 空欄・未設定は ''。数値として読めない保存値はそのまま返す。
+ */
+export function chipCountToInput(stored, mode) {
+  if (stored === undefined || stored === null || stored === '') return '';
+  if (mode !== CHIP_INPUT_MODES.DIFF) return String(stored);
+  const str = String(stored).trim();
+  const n = Number(str);
+  if (str === '' || !Number.isFinite(n)) return String(stored);
+  return String(n - CHIP_BASE_COUNT);
+}
+
+/**
+ * 4人のチップの「基準枚数との差」の合計。空欄は差0として数える。
+ * 1人も入力していないとき（全員空欄・未設定）は null。
+ */
+export function chipDiffTotal(chipRow) {
+  let total = 0;
+  let anyInput = false;
+  ['rank1', 'rank2', 'rank3', 'rank4'].forEach((key) => {
+    const v = chipRow?.[key];
+    if (v === undefined || v === null || String(v).trim() === '') return;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return;
+    anyInput = true;
+    total += n - CHIP_BASE_COUNT;
+  });
+  return anyInput ? total : null;
+}
+
 /**
  * 点数入力欄の文字列から不要な文字を除く。数字のみ（allowNegative のときは先頭の - も可）で、桁数は上限あり。
  * @param {string} value - 入力された文字列
@@ -221,13 +272,13 @@ export function recalcFinalStats(group) {
     
     const rankKey = `rank${index + 1}`;
     
-    // チップ入力値を取得 (デフォルト: 20)
+    // チップ入力値を取得 (デフォルト: 基準枚数)
     const chipInput = chipRow[rankKey] !== undefined && chipRow[rankKey] !== '' 
       ? Number(chipRow[rankKey]) 
-      : 20;
+      : CHIP_BASE_COUNT;
     
-    // ボーナス計算: (チップ - 20) * 配点 / 100
-    const bonus = ((chipInput - 20) * distribution) / 100;
+    // ボーナス計算: (チップ - 基準枚数) * 配点 / 100
+    const bonus = ((chipInput - CHIP_BASE_COUNT) * distribution) / 100;
     stats[playerName].chipBonus = bonus;
     
     // 最終結果 = 半荘結果合計 + チップボーナス

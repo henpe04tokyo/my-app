@@ -44,7 +44,11 @@
 
 ## 6. チップ
 - `chipRow.rankN`（枚数、空欄は20）、`settings.chipDistribution`（配点、既定300）
-- `chipBonus = (枚数 − 20) × 配点 / 100`、`halfResult = finalResult + chipBonus`（`recalcFinalStats`）
+- `chipBonus = (枚数 − 20) × 配点 / 100`、`halfResult = finalResult + chipBonus`（`recalcFinalStats`）。基準の20は `CHIP_BASE_COUNT`（固定）
+- **入力モード**（ユーザー設定 `users/{uid}.preferences.chipInputMode`）: `count` = 持ち枚数（既定）、`diff` = 20枚との差（18枚 → `-2`）
+  - **保存する `chipRow` は、どちらのモードでも持ち枚数の文字列**。変換は入力欄の出入口だけ（`chipInputToCount` / `chipCountToInput`、`ChipInput.jsx`）。計算・集計・共有画像はモードを知らない。モードを切り替えても過去のデータは変わらない
+  - 空欄は ''（= 20枚、差0）。整数でない入力途中の文字は保存しない
+  - 4人の「差」の合計が0でないとき、チップ行の下に注意を出す（`chipDiffTotal`。保存は止めない）
 
 ## 7. 集計
 - `finalResult` = 全半荘の `finalScores` を、プレイヤー列ごとに合計したもの（プレイヤー名で集計）

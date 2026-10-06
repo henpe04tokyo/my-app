@@ -302,6 +302,17 @@ function Home() {
             集計
           </button>
         </div>
+
+        {/* 設定 */}
+        <div className="rounded-lg bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-xl font-semibold text-gray-800">設定</h2>
+          <button 
+            onClick={() => navigate('/settings')}
+            className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700"
+          >
+            設定を開く
+          </button>
+        </div>
       </div>
     </>
   );
