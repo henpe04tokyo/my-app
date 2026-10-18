@@ -1,6 +1,7 @@
 // src/components/Landing/ScoreCalculator.jsx
 // ログイン不要の精算計算ツール。入力は保存・送信しない（計測するのは「使われたこと」だけ）。
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { sanitizeScoreInput, toRawScore } from '../../utils/scoreCalculation';
 import {
   calculateQuickResult,
@@ -207,6 +208,18 @@ const ScoreCalculator = () => {
             <p className="mt-2 text-xs text-gray-500">
               2〜4位は「順位点 −（30 − 五捨六入後の持ち点）」、1位は他の3人の合計の符号を反転（オカ込み）で計算しています。
             </p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-indigo-50 p-3">
+              <p className="text-sm text-indigo-900">
+                次の半荘も記録して、年間の成績を集計できます。
+              </p>
+              <Link
+                to="/signup"
+                onClick={() => trackEvent('landing_cta_click', { target: 'signup_after_result' })}
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                無料で新規登録
+              </Link>
+            </div>
           </>
         )}
       </div>
