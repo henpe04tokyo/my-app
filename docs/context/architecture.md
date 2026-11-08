@@ -37,6 +37,7 @@
 | `utils/shareResult.js` / `utils/shareImage.js` | 共有画像の数字の組み立て（`buildShareSummary`）と、Canvas での描画（`renderTotalImage` / `renderGamesImage`） |
 | `utils/quickCalc.js` | 精算計算ツール用の純関数 `calculateQuickResult`。`scoreCalculation.js` を再利用 |
 | `utils/scoreCalculation.js` | **点数ロジックの中心。** 入力変換、五捨六入、順位点、飛んだ人の支払い反映、集計 |
+| `components/Analysis/HeadToHeadChart.jsx` / `utils/headToHead.js` | 分析画面の「対戦相性」（メイン×相手ごとの半荘pt・チップの横棒）と、その集計 |
 | `utils/tieResolution.js` | 同点判定・順位の組み立て |
 | `Home.jsx` / `Analysis.jsx` / `Login.jsx` / `Signup.jsx` / `AuthContext.js` / `PrivateRoute.jsx` | 上の画面表のとおり |
 
