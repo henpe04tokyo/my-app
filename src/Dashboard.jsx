@@ -11,6 +11,7 @@ import GameInputForm from './components/Dashboard/GameInputForm';
 import GameResultsTable from './components/Dashboard/GameResultsTable';
 import PlayerSettings from './components/Dashboard/PlayerSettings';
 import ChipSettings from './components/Dashboard/ChipSettings';
+import useUserPreferences from './hooks/useUserPreferences';
 
 // グループ詳細コンポーネント
 const GroupDetail = ({ 
@@ -21,6 +22,7 @@ const GroupDetail = ({
   rankPointOption, setRankPointOption,
   currentGameScore, setCurrentGameScore,
   chipRow, setChipRow,
+  chipInputMode, chipInputLoading,
   navigate
 }) => {
   const [isSaving, setIsSaving] = useState(false);
@@ -422,40 +424,6 @@ const GroupDetail = ({
     }
   };
 
-  // コンポーネントがマウントされたときにデータを読み込み
-  useEffect(() => {
-    if (currentGroup && currentGroup.docId) {
-      try {
-        const docRef = doc(db, "groups", currentGroup.docId);
-        getDoc(docRef).then(docSnap => {
-          if (docSnap.exists()) {
-            const freshData = { ...docSnap.data(), docId: currentGroup.docId };
-            
-            // 整合性チェック
-            if (!Array.isArray(freshData.games)) {
-              freshData.games = [];
-            }
-            
-            if (!freshData.players) {
-              freshData.players = currentGroup.players || ['', '', '', ''];
-            }
-            
-            // 統計を再計算して常に最新の計算結果を使用
-            freshData.finalStats = recalcFinalStats(freshData);
-            
-            // 状態を更新
-            setCurrentGroup(freshData);
-            setGroups(prev => prev.map(g => g.docId === freshData.docId ? freshData : g));
-            setPlayers(freshData.players || ['', '', '', '']);
-            setChipRow(freshData.chipRow || {});
-          }
-        });
-      } catch (error) {
-        console.error("初期データ読み込みエラー:", error);
-      }
-    }
-  }, [currentGroup, setCurrentGroup, setGroups, setPlayers, setChipRow]); // 依存配列を追加
-
   if (!currentGroup) return <div>Loading...</div>;
 
   return (
@@ -522,6 +490,8 @@ const GroupDetail = ({
           handleEditGameScore={handleEditGameScore}
           handleDeleteGame={handleDeleteGame}
           handleChipChange={handleChipChange}
+          chipInputMode={chipInputMode}
+          chipInputLoading={chipInputLoading}
         />
       </div>
     </div>
@@ -536,6 +506,7 @@ const Dashboard = () => {
   const auth = getAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { preferences, loading: preferencesLoading } = useUserPreferences();
 
   // ========== すべての State 宣言 ==========
   const [groups, setGroups] = useState([]);
@@ -649,6 +620,10 @@ const Dashboard = () => {
                   console.log("games配列が存在しないため初期化");
                 }
                 
+                if (!latestData.players) {
+                  latestData.players = foundGroup.players || ['', '', '', ''];
+                }
+                
                 // 統計を再計算して常に最新の計算結果を使用
                 latestData.finalStats = recalcFinalStats(latestData);
                 
@@ -754,6 +729,8 @@ const Dashboard = () => {
           setCurrentGameScore={setCurrentGameScore}
           chipRow={chipRow}
           setChipRow={setChipRow}
+          chipInputMode={preferences.chipInputMode}
+          chipInputLoading={preferencesLoading}
           navigate={navigate}
         />
       );

@@ -4,6 +4,7 @@ import PrivateRoute from "./PrivateRoute";
 import { AuthProvider, AuthContext } from "./AuthContext";
 import Dashboard from "./Dashboard";
 import Home from "./Home";
+import Settings from "./Settings";
 import Landing from "./Landing";
 import Login from "./Login";
 import Signup from "./Signup";
@@ -33,6 +34,7 @@ function App() {
           {/* 認証が必要なページ */}
           <Route element={<PrivateRoute />}>
             <Route path="/home" element={<Home />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/group/:groupId" element={<Dashboard />} />
             <Route path="/dashboard/analysis" element={<Dashboard />} />
