@@ -1,5 +1,6 @@
 // src/Analysis.jsx
 import React, { useState, useMemo } from 'react';
+import HeadToHeadChart from './components/Analysis/HeadToHeadChart';
 
 // "YYYY-MM-DD" 形式の文字列から年を抜き出す
 function extractYear(dateStr) {
@@ -127,6 +128,12 @@ const Analysis = ({ groups, onClose }) => {
         </div>
       </div>
       
+      {/* 対戦相性（年のフィルタのみ適用） */}
+      <HeadToHeadChart
+        groups={groups.filter(g => !selectedYear || extractYear(g.date || g.name) === selectedYear)}
+        players={allPlayers}
+      />
+
       {/* プレイヤーごとの順位統計テーブル - 常に表示 */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">プレイヤー順位統計</h2>
